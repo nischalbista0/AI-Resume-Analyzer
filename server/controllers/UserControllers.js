@@ -37,25 +37,6 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Validate resume if provided
-    if (req.files.resume && req.files.resume.length > 0) {
-      const resumeFile = req.files.resume[0];
-      const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
-      if (!allowedTypes.includes(resumeFile.mimetype)) {
-        // Delete both files
-        fs.unlinkSync(avatarFile.path);
-        fs.unlinkSync(resumeFile.path);
-        return res.status(400).json({
-          success: false,
-          message: "Resume must be a PDF or DOC file",
-        });
-      }
-    }
-
     const hashPass = await bcrypt.hash(password, 10);
     const user = await User.create({
       name,
@@ -63,7 +44,6 @@ exports.register = async (req, res) => {
       password: hashPass,
       avatar: avatarFile.path,
       skills: skills.split(","),
-      resume: req.files.resume ? req.files.resume[0].path : null,
     });
 
     const token = createToken(user._id, user.email);
@@ -76,13 +56,8 @@ exports.register = async (req, res) => {
     });
   } catch (err) {
     // If there's an error, delete any uploaded files
-    if (req.files) {
-      if (req.files.avatar) {
-        fs.unlinkSync(req.files.avatar[0].path);
-      }
-      if (req.files.resume) {
-        fs.unlinkSync(req.files.resume[0].path);
-      }
+    if (req.files && req.files.avatar) {
+      fs.unlinkSync(req.files.avatar[0].path);
     }
 
     // Handle specific error types
@@ -239,12 +214,6 @@ exports.updateProfile = async (req, res) => {
         }
         user.avatar = req.files.avatar[0].path;
       }
-      if (req.files.resume) {
-        if (user.resume) {
-          fs.unlinkSync(user.resume);
-        }
-        user.resume = req.files.resume[0].path;
-      }
     }
 
     user.name = newName;
@@ -259,13 +228,8 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (err) {
     // If there's an error, delete any newly uploaded files
-    if (req.files) {
-      if (req.files.avatar) {
-        fs.unlinkSync(req.files.avatar[0].path);
-      }
-      if (req.files.resume) {
-        fs.unlinkSync(req.files.resume[0].path);
-      }
+    if (req.files && req.files.avatar) {
+      fs.unlinkSync(req.files.avatar[0].path);
     }
     res.status(500).json({
       success: false,
@@ -284,9 +248,6 @@ exports.deleteAccount = async (req, res) => {
       // Delete user's files
       if (user.avatar) {
         fs.unlinkSync(user.avatar);
-      }
-      if (user.resume) {
-        fs.unlinkSync(user.resume);
       }
 
       await User.findByIdAndRemove(req.user._id);
@@ -323,7 +284,7 @@ exports.uploadFile = async (req, res) => {
       });
     }
 
-    // Get the first file (either avatar or resume)
+    // Get the first file (avatar only now)
     const fileType = Object.keys(req.files)[0];
     const file = req.files[fileType][0];
 

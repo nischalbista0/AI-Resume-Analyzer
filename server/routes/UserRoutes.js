@@ -46,7 +46,6 @@ router.route("/upload").post(
   },
   upload.fields([
     { name: "avatar", maxCount: 1 },
-    { name: "resume", maxCount: 1 },
   ]),
   handleMulterError,
   uploadFile
@@ -55,7 +54,6 @@ router.route("/upload").post(
 router.route("/register").post(
   upload.fields([
     { name: "avatar", maxCount: 1 },
-    { name: "resume", maxCount: 1 },
   ]),
   registerValidator(),
   validateHandler,
@@ -78,7 +76,6 @@ router.route("/updateProfile").put(
   isAuthenticated,
   upload.fields([
     { name: "avatar", maxCount: 1 },
-    { name: "resume", maxCount: 1 },
   ]),
   updateProfileValidator(),
   validateHandler,

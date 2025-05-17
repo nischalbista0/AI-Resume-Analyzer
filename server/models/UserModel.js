@@ -51,6 +51,31 @@ const UserSchema = new mongoose.Schema({
       ref: "Application",
     },
   ],
+  apiUsage: {
+    totalTokens: {
+      type: Number,
+      default: 0
+    },
+    totalCost: {
+      type: Number,
+      default: 0
+    },
+    lastAnalysisDate: {
+      type: Date
+    },
+    analysisHistory: [
+      {
+        date: {
+          type: Date,
+          default: Date.now
+        },
+        inputTokens: Number,
+        outputTokens: Number,
+        totalTokens: Number,
+        cost: Number
+      }
+    ]
+  },
   createdAt: {
     type: Date,
     default: Date.now,
