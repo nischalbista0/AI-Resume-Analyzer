@@ -203,33 +203,66 @@ exports.changePassword = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { newName, newEmail, newSkills } = req.body;
+    const {
+      name,
+      email,
+      username,
+      nickname,
+      dateOfBirth,
+      nationality,
+      bio,
+      phone,
+      address,
+    } = req.body;
     const user = await User.findById(req.user._id);
 
     // Delete old files if new ones are uploaded
     if (req.files) {
-      if (req.files.avatar) {
-        if (user.avatar) {
-          fs.unlinkSync(user.avatar);
-        }
-        user.avatar = req.files.avatar[0].path;
+      if (req.files.avatar && user.avatar) {
+        fs.unlinkSync(user.avatar);
+      }
+      if (req.files.resume && user.resume) {
+        fs.unlinkSync(user.resume);
       }
     }
 
-    user.name = newName;
-    user.email = newEmail;
-    user.skills = newSkills;
+    // Update user fields if provided in the request body
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email;
+    if (username !== undefined) user.username = username;
+    if (nickname !== undefined) user.nickname = nickname;
+    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
+    if (nationality !== undefined) user.nationality = nationality;
+    if (bio !== undefined) user.bio = bio;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+
+    // Update avatar if a new one is uploaded
+    if (req.files && req.files.avatar) {
+      user.avatar = req.files.avatar[0].path;
+    }
+
+    // Update resume if a new one is uploaded
+    if (req.files && req.files.resume) {
+      user.resume = req.files.resume[0].path;
+    }
 
     await user.save();
 
     res.status(200).json({
       success: true,
       message: "Profile Updated",
+      user,
     });
   } catch (err) {
     // If there's an error, delete any newly uploaded files
-    if (req.files && req.files.avatar) {
-      fs.unlinkSync(req.files.avatar[0].path);
+    if (req.files) {
+      if (req.files.avatar) {
+        fs.unlinkSync(req.files.avatar[0].path);
+      }
+      if (req.files.resume) {
+        fs.unlinkSync(req.files.resume[0].path);
+      }
     }
     res.status(500).json({
       success: false,
@@ -248,6 +281,9 @@ exports.deleteAccount = async (req, res) => {
       // Delete user's files
       if (user.avatar) {
         fs.unlinkSync(user.avatar);
+      }
+      if (user.resume) {
+        fs.unlinkSync(user.resume);
       }
 
       await User.findByIdAndRemove(req.user._id);

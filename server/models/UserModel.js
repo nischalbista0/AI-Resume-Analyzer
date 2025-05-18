@@ -23,6 +23,36 @@ const UserSchema = new mongoose.Schema({
     type: String,
   },
 
+  username: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow nulls while maintaining uniqueness for non-null values
+  },
+
+  nickname: {
+    type: String,
+  },
+
+  dateOfBirth: {
+    type: Date,
+  },
+
+  nationality: {
+    type: String,
+  },
+
+  bio: {
+    type: String,
+  },
+
+  phone: {
+    type: String,
+  },
+
+  address: {
+    type: String,
+  },
+
   role: {
     type: String,
     enum: ["applicant", "admin"],
@@ -54,27 +84,27 @@ const UserSchema = new mongoose.Schema({
   apiUsage: {
     totalTokens: {
       type: Number,
-      default: 0
+      default: 0,
     },
     totalCost: {
       type: Number,
-      default: 0
+      default: 0,
     },
     lastAnalysisDate: {
-      type: Date
+      type: Date,
     },
     analysisHistory: [
       {
         date: {
           type: Date,
-          default: Date.now
+          default: Date.now,
         },
         inputTokens: Number,
         outputTokens: Number,
         totalTokens: Number,
-        cost: Number
-      }
-    ]
+        cost: Number,
+      },
+    ],
   },
   createdAt: {
     type: Date,

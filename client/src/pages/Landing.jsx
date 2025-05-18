@@ -1,21 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MetaData } from "../components/MetaData.jsx";
+import { useSelector } from "react-redux";
 
-export const Home = () => {
+export const Landing = () => {
+  const { isLogin } = useSelector((state) => state.user);
   const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
+  const navigate = useNavigate();
+
   useEffect(() => {
-    function onClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+    if (isLogin) {
+      navigate("/main");
     }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+  }, [isLogin]);
 
   return (
     <>
@@ -28,7 +26,7 @@ export const Home = () => {
         }}
       >
         {/* Dropdown */}
-        <div ref={dropdownRef} className="absolute top-5 right-5">
+        <div className="absolute top-5 right-5">
           <Link to="/login">
             <button
               // onClick={() => setOpen((o) => !o)}
@@ -37,20 +35,6 @@ export const Home = () => {
               Log In
             </button>
           </Link>
-          {/* {open && (
-            <div className="absolute top-14 right-0 bg-white text-black border border-gray-300 rounded shadow-md z-10">
-              {["admin", "user", "company"].map((role) => (
-                <Link
-                  key={role}
-                  to={`/${role}login`}
-                  className="block px-6 py-3 hover:bg-gray-100 text-sm"
-                  onClick={() => setOpen(false)}
-                >
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                </Link>
-              ))}
-            </div>
-          )} */}
         </div>
 
         {/* Icon */}

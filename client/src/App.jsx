@@ -1,13 +1,8 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { Home } from "./pages/Home";
+import { Landing } from "./pages/Landing.jsx";
 import { Navbar } from "./components/Navbar";
-import { Footer } from "./components/Footer";
 import { Jobs } from "./pages/Jobs";
-import { Contact } from "./pages/Contact";
-import { About } from "./pages/About";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { MyProfile } from "./pages/MyProfile";
 import { AppliedJobs } from "./pages/AppliedJobs";
 import { SavedJobs } from "./pages/SavedJobs";
@@ -35,6 +30,10 @@ import { Test } from "./pages/Test";
 import NotFound from "./pages/NotFound";
 import UnAuthorized from "./pages/UnAuthorized";
 import ScrollToTopWhenRouteChanges from "./components/ScrollToTopOnRouteChange.jsx";
+import { Toaster } from "react-hot-toast";
+import { UserDashboard } from "./pages/UserDashboard.jsx";
+import { MainLayout } from "./components/MainLayout.jsx";
+import { ResumeAnalysis } from "./pages/ResumeAnalysis";
 
 function App() {
   const dispatch = useDispatch();
@@ -68,28 +67,17 @@ function App() {
   return (
     <>
       <ScrollToTopWhenRouteChanges />
+
+      <Toaster position="top-center" />
+
       <Routes>
-        <Route exact path="/" element={<Home />} />
+        <Route exact path="/" element={<Landing />} />
 
         <Route path="/login" element={<Login />} />
 
         <Route path="/register" element={<Register />} />
 
-        <Route
-          element={
-            <>
-              <Navbar />
-              <Outlet />
-              <Footer />
-            </>
-          }
-        >
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/about" element={<About />} />
-
-          <Route path="/details/:id" element={<JobDetails />} />
-
+        <Route element={<MainLayout />}>
           <Route
             element={
               <ProtectedRoute
@@ -99,18 +87,14 @@ function App() {
               />
             }
           >
+            <Route path="/main" element={<UserDashboard />} />
             <Route path="/profile" element={<MyProfile />} />
             <Route path="/applied" element={<AppliedJobs />} />
             <Route path="/saved" element={<SavedJobs />} />
             <Route path="/changePassword" element={<ChangePassword />} />
             <Route path="/editProfile" element={<EditProfile />} />
             <Route path="/deleteAccount" element={<DeleteAccount />} />
-            <Route path="/JobsLayout" element={<JobsLayout />} />
-            <Route path="/Application/:id" element={<Application />} />
-            <Route
-              path="/Application/Details/:id"
-              element={<ApplicationDetails />}
-            />
+            <Route path="/resume-analysis" element={<ResumeAnalysis />} />
           </Route>
 
           <Route
@@ -120,7 +104,7 @@ function App() {
               />
             }
           >
-            <Route path="/admin/dashboard" element={<Dashboard />} />
+            {/* <Route path="/admin/dashboard" element={<Dashboard />} />
             <Route path="/admin/postJob" element={<CreateJob />} />
             <Route path="/admin/allJobs" element={<ViewAllJobAdmin />} />
             <Route path="/admin/allApplications" element={<ViewAllAppli />} />
@@ -131,29 +115,35 @@ function App() {
             />
             <Route path="/admin/user/role/:id" element={<EditUserAdmin />} />
             <Route path="/admin/job/details/:id" element={<EditJobAdmin />} />
+            <Route path="/admin/jobs" element={<AdminJobs />} />
+            <Route path="/admin/jobs/create" element={<CreateJob />} />
+            <Route path="/admin/jobs/edit/:id" element={<EditJob />} />
+            <Route path="/admin/applications" element={<ViewAllAppli />} />
+            <Route
+              path="/admin/application/edit/:id"
+              element={<EditAppAdmin />}
+            /> */}
           </Route>
 
-          {/* test */}
+          <Route path="/jobs" element={<Jobs />} />
+
+          <Route path="/details/:id" element={<JobDetails />} />
+
+          <Route path="/JobsLayout" element={<JobsLayout />} />
+
+          <Route path="/Application/:id" element={<Application />} />
+
+          <Route
+            path="/Application/Details/:id"
+            element={<ApplicationDetails />}
+          />
+
           <Route path="/test" element={<Test />} />
 
           <Route path="*" element={<NotFound />} />
           <Route path="/unauthorized" element={<UnAuthorized />} />
         </Route>
       </Routes>
-
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-        className="mt-14 font-bold  "
-      />
     </>
   );
 }

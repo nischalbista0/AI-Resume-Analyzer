@@ -5,16 +5,16 @@ import {
   AiOutlineUnlock,
   AiOutlineEyeInvisible,
   AiOutlineEye,
+  AiOutlineClose,
 } from "react-icons/ai";
 import { MdPermIdentity, MdOutlineFeaturedPlayList } from "react-icons/md";
-import { BsFileEarmarkText } from "react-icons/bs";
 import { CgProfile } from "react-icons/cg";
 import { Link, useNavigate } from "react-router-dom";
 import { TbLoader2 } from "react-icons/tb";
-import { registerUser } from "../actions/UserActions";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
-import { toast } from "react-hot-toast";
+import toast from "react-hot-toast";
+import { commonSkills } from "../constants/skills";
 
 export const Register = () => {
   const { loading, isLogin } = useSelector((state) => state.user);
@@ -22,15 +22,18 @@ export const Register = () => {
   const navigate = useNavigate();
 
   const [eyeTog, setEyeTog] = useState(false);
+  const [confirmEyeTog, setConfirmEyeTog] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [skills, setSkills] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [skills, setSkills] = useState([]);
+  const [currentSkill, setCurrentSkill] = useState("");
   const [avatar, setAvatar] = useState(null);
   const [avatarName, setAvatarName] = useState("");
-  const [resume, setResume] = useState(null);
-  const [resumeName, setResumeName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showSkillsDropdown, setShowSkillsDropdown] = useState(false);
+  const [filteredSkills, setFilteredSkills] = useState(commonSkills);
 
   const avatarChange = (e) => {
     const file = e.target.files[0];
@@ -49,43 +52,120 @@ export const Register = () => {
     }
   };
 
-  const resumeChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        // 10MB limit
-        toast.error("Resume file size should be less than 10MB");
-        return;
-      }
-      const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error("Please upload a PDF or DOC file");
-        return;
-      }
-      setResume(file);
-      setResumeName(file.name);
+  const handleSkillInput = (e) => {
+    const value = e.target.value;
+    setCurrentSkill(value);
+
+    if (value.trim()) {
+      const filtered = commonSkills.filter((skill) =>
+        skill.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSkills(filtered);
+      setShowSkillsDropdown(true);
+    } else {
+      setFilteredSkills(commonSkills);
+      setShowSkillsDropdown(false);
     }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && currentSkill.trim()) {
+      e.preventDefault();
+      if (skills.includes(currentSkill.trim())) {
+        toast.error("This skill is already added");
+        return;
+      }
+      if (skills.length >= 10) {
+        toast.error("Maximum 10 skills allowed");
+        return;
+      }
+      setSkills([...skills, currentSkill.trim()]);
+      setCurrentSkill("");
+      setShowSkillsDropdown(false);
+    }
+  };
+
+  const handleClickOutside = (e) => {
+    // Check if click is outside the skills container
+    if (!e.target.closest(".skills-container")) {
+      setShowSkillsDropdown(false);
+
+      // Only add skill if there's text in the input
+      if (currentSkill.trim()) {
+        if (skills.includes(currentSkill.trim())) {
+          toast.error("This skill is already added");
+        } else if (skills.length >= 10) {
+          toast.error("Maximum 10 skills allowed");
+        } else {
+          setSkills([...skills, currentSkill.trim()]);
+        }
+        setCurrentSkill("");
+      }
+    }
+  };
+
+  const selectSkill = (skill) => {
+    if (skills.includes(skill)) {
+      toast.error("This skill is already added");
+      return;
+    }
+    if (skills.length >= 10) {
+      toast.error("Maximum 10 skills allowed");
+      return;
+    }
+    setSkills([...skills, skill]);
+    setCurrentSkill("");
+    setShowSkillsDropdown(false);
+  };
+
+  const removeSkill = (skillToRemove) => {
+    setSkills(skills.filter((skill) => skill !== skillToRemove));
   };
 
   const registerHandler = async (e) => {
     e.preventDefault();
+
+    // Validate name
+    if (name.trim().length < 2) {
+      toast.error("Name should be at least 2 characters long");
+      return;
+    }
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Validate password
+    if (password.length < 6) {
+      toast.error("Password should be at least 6 characters long");
+      return;
+    }
+
+    // Validate password match
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    // Validate skills
+    if (skills.length === 0) {
+      toast.error("Please add at least one skill");
+      return;
+    }
+
     try {
       setUploading(true);
       const formData = new FormData();
       formData.append("name", name);
       formData.append("email", email);
       formData.append("password", password);
-      formData.append("skills", skills);
+      formData.append("skills", skills.join(","));
 
       if (avatar) {
         formData.append("avatar", avatar);
-      }
-      if (resume) {
-        formData.append("resume", resume);
       }
 
       const config = {
@@ -107,11 +187,11 @@ export const Register = () => {
         setName("");
         setEmail("");
         setPassword("");
-        setSkills("");
+        setConfirmPassword("");
+        setSkills([]);
+        setCurrentSkill("");
         setAvatar(null);
         setAvatarName("");
-        setResume(null);
-        setResumeName("");
 
         // Redirect to login page after a short delay
         setTimeout(() => {
@@ -134,9 +214,17 @@ export const Register = () => {
     }
   }, [isLogin, navigate]);
 
+  useEffect(() => {
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [currentSkill, skills]);
+
   return (
     <>
       <MetaData title="Register" />
+
       <div className="flex min-h-screen">
         {/* Left Side - Image and Welcome Text */}
         <div
@@ -220,6 +308,123 @@ export const Register = () => {
               </div>
             </div>
 
+            {/* Profile Picture */}
+            <div className="mb-4">
+              <label
+                htmlFor="avatar"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Profile Picture
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <CgProfile className="text-gray-400" size={20} />
+                </div>
+                <div className="flex items-center">
+                  <label
+                    htmlFor="avatar"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md cursor-pointer flex items-center text-gray-500 hover:border-blue-500"
+                  >
+                    {avatarName || "Select Profile Picture"}
+                  </label>
+                  <input
+                    id="avatar"
+                    name="avatar"
+                    onChange={avatarChange}
+                    accept="image/*"
+                    type="file"
+                    className="hidden"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Skills */}
+            <div className="mb-4 skills-container">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Skills
+              </label>
+              <div className="relative">
+                <div className="absolute top-3 left-3 z-10">
+                  <MdOutlineFeaturedPlayList
+                    className="text-gray-400"
+                    size={20}
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={currentSkill}
+                    onChange={handleSkillInput}
+                    onKeyPress={handleKeyPress}
+                    onFocus={() => setShowSkillsDropdown(true)}
+                    placeholder="Search or type a skill"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {showSkillsDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {filteredSkills.length > 0 ? (
+                        <>
+                          {filteredSkills.map((skill, index) => (
+                            <div
+                              key={index}
+                              onClick={() => selectSkill(skill)}
+                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                            >
+                              {skill}
+                            </div>
+                          ))}
+                          {currentSkill.trim() &&
+                            !filteredSkills.includes(currentSkill.trim()) && (
+                              <div
+                                onClick={() => selectSkill(currentSkill.trim())}
+                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm border-t border-gray-200 bg-gray-50"
+                              >
+                                <span className="text-blue-600">+</span> Add "
+                                {currentSkill.trim()}"
+                              </div>
+                            )}
+                        </>
+                      ) : (
+                        <div className="px-4 py-2 text-sm text-gray-500">
+                          No matching skills found. Press Enter to add as custom
+                          skill.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => removeSkill(skill)}
+                        className="ml-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <AiOutlineClose size={16} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                {skills.length > 0 && (
+                  <div className="mt-2 flex items-center text-xs text-gray-500">
+                    <div className="flex items-center space-x-2">
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                        {skills.length}{" "}
+                        {skills.length === 1 ? "skill" : "skills"} added
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Password */}
             <div className="mb-4">
               <label
@@ -257,97 +462,53 @@ export const Register = () => {
               </div>
             </div>
 
-            {/* Profile Picture */}
-            <div className="mb-4">
-              <label
-                htmlFor="avatar"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Profile Picture
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <CgProfile className="text-gray-400" size={20} />
-                </div>
-                <label
-                  htmlFor="avatar"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md cursor-pointer flex items-center text-gray-500 hover:border-blue-500"
-                >
-                  {avatarName || "Select Profile Picture..."}
-                </label>
-                <input
-                  id="avatar"
-                  name="avatar"
-                  required
-                  onChange={avatarChange}
-                  accept="image/*"
-                  type="file"
-                  className="hidden"
-                />
-              </div>
-            </div>
-
-            {/* Resume */}
-            <div className="mb-4">
-              <label
-                htmlFor="resume"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Resume
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <BsFileEarmarkText className="text-gray-400" size={20} />
-                </div>
-                <label
-                  htmlFor="resume"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md cursor-pointer flex items-center text-gray-500 hover:border-blue-500"
-                >
-                  {resumeName || "Select Resume..."}
-                </label>
-                <input
-                  id="resume"
-                  name="resume"
-                  onChange={resumeChange}
-                  accept=".pdf,.doc,.docx"
-                  type="file"
-                  className="hidden"
-                />
-              </div>
-            </div>
-
-            {/* Skills */}
+            {/* Confirm Password */}
             <div className="mb-6">
               <label
-                htmlFor="skills"
+                htmlFor="confirmPassword"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Skills (comma separated)
+                Confirm Password
               </label>
               <div className="relative">
-                <div className="absolute top-3 left-3">
-                  <MdOutlineFeaturedPlayList
-                    className="text-gray-400"
-                    size={20}
-                  />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <AiOutlineUnlock className="text-gray-400" size={20} />
                 </div>
-                <textarea
-                  id="skills"
-                  value={skills}
-                  onChange={(e) => setSkills(e.target.value)}
-                  placeholder="Enter your skills (e.g., JavaScript, React, Node.js)"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+                <input
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirm your password"
+                  type={confirmEyeTog ? "text" : "password"}
+                  className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmEyeTog(!confirmEyeTog)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    {confirmEyeTog ? (
+                      <AiOutlineEye size={20} />
+                    ) : (
+                      <AiOutlineEyeInvisible size={20} />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-md text-base hover:bg-blue-700 transition duration-300 disabled:bg-blue-400 disabled:cursor-not-allowed flex justify-center items-center"
+              disabled={uploading}
+              className="w-full bg-blue-600 text-white py-3 rounded-md text-base hover:bg-blue-700 transition duration-300 disabled:bg-blue-400 disabled:cursor-not-allowed flex justify-center items-center gap-2"
             >
-              {loading ? (
-                <TbLoader2 className="animate-spin" size={24} />
+              {uploading ? (
+                <>
+                  <TbLoader2 className="animate-spin" size={20} />
+                  <span>Creating Account...</span>
+                </>
               ) : (
                 "Create Account"
               )}

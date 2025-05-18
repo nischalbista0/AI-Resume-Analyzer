@@ -44,21 +44,19 @@ router.route("/upload").post(
     });
     next();
   },
-  upload.fields([
-    { name: "avatar", maxCount: 1 },
-  ]),
+  upload.fields([{ name: "avatar", maxCount: 1 }]),
   handleMulterError,
   uploadFile
 );
 
-router.route("/register").post(
-  upload.fields([
-    { name: "avatar", maxCount: 1 },
-  ]),
-  registerValidator(),
-  validateHandler,
-  register
-);
+router
+  .route("/register")
+  .post(
+    upload.fields([{ name: "avatar", maxCount: 1 }]),
+    registerValidator(),
+    validateHandler,
+    register
+  );
 
 router.route("/login").post(loginValidator(), validateHandler, login);
 router.route("/isLogin").get(isAuthenticated, isLogin);
@@ -72,15 +70,15 @@ router
     changePassword
   );
 
-router.route("/updateProfile").put(
-  isAuthenticated,
-  upload.fields([
-    { name: "avatar", maxCount: 1 },
-  ]),
-  updateProfileValidator(),
-  validateHandler,
-  updateProfile
-);
+router
+  .route("/updateProfile")
+  .put(
+    isAuthenticated,
+    upload.fields([{ name: "avatar", maxCount: 1 }]),
+    updateProfileValidator(),
+    validateHandler,
+    updateProfile
+  );
 
 router
   .route("/deleteAccount")
@@ -89,6 +87,15 @@ router
     deleteAccountValidator(),
     validateHandler,
     deleteAccount
+  );
+
+// Add resume update route
+router
+  .route("/updateResume")
+  .put(
+    isAuthenticated,
+    upload.fields([{ name: "resume", maxCount: 1 }]),
+    updateProfile
   );
 
 module.exports = router;

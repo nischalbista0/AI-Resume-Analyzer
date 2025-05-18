@@ -10,6 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { TbLoader2 } from "react-icons/tb";
 import { loginUser } from "../actions/UserActions";
 import { useDispatch, useSelector } from "react-redux";
+import toast, { Toaster } from "react-hot-toast";
 
 export const Login = () => {
   const { loading, isLogin } = useSelector((state) => state.user);
@@ -22,6 +23,20 @@ export const Login = () => {
 
   const loginHandler = (e) => {
     e.preventDefault();
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Validate password
+    if (password.length < 6) {
+      toast.error("Password should be at least 6 characters long");
+      return;
+    }
+
     const data = {
       email,
       password,
@@ -33,13 +48,14 @@ export const Login = () => {
 
   useEffect(() => {
     if (isLogin) {
-      navigate("/");
+      navigate("/main");
     }
   }, [isLogin, navigate]);
 
   return (
     <>
       <MetaData title="Login" />
+
       <div className="flex min-h-screen">
         {/* Left Side - Image and Welcome Text */}
         <div
@@ -68,7 +84,7 @@ export const Login = () => {
             className="w-40 h-40 object-contain mb-6"
           />
           <div className="flex flex-col items-center mb-6">
-            <h2 className="text-2xl font-semibold">User Login</h2>
+            <h2 className="text-2xl font-semibold">Login</h2>
             <p className="text-center text-sm">
               Please sign in to your account
             </p>
@@ -139,18 +155,18 @@ export const Login = () => {
                 <input type="checkbox" className="accent-blue-600" />
                 Remember me
               </label>
-              <Link to="#" className="text-blue-600 hover:underline">
-                Forgot password?
-              </Link>
             </div>
 
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full bg-blue-600 text-white py-3 rounded-md text-base hover:bg-blue-700 transition duration-300 disabled:bg-blue-400 disabled:cursor-not-allowed flex justify-center items-center"
+              className="w-full bg-blue-600 text-white py-3 rounded-md text-base hover:bg-blue-700 transition duration-300 disabled:bg-blue-400 disabled:cursor-not-allowed flex justify-center items-center gap-2"
             >
               {loading ? (
-                <TbLoader2 className="animate-spin" size={24} />
+                <>
+                  <TbLoader2 className="animate-spin" size={20} />
+                  <span>Signing In...</span>
+                </>
               ) : (
                 "Sign In"
               )}

@@ -31,11 +31,44 @@ exports.changePasswordValidator = () => [
 ];
 
 exports.updateProfileValidator = () => [
-  body("newName").notEmpty().withMessage("Please enter your new name"),
-  body("newEmail").isEmail().withMessage("Please enter a valid new email"),
-  body("newAvatar").notEmpty().withMessage("Please enter your new avatar"),
-  body("newResume").notEmpty().withMessage("Please enter your new resume"),
-  body("newSkills").notEmpty().withMessage("Please enter your new skills"),
+  body("name")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Please enter your new name"),
+  body("email")
+    .optional({ checkFalsy: true })
+    .isEmail()
+    .withMessage("Please enter a valid new email"),
+  body("username")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Username cannot be empty"),
+  body("nickname")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Nickname cannot be empty"),
+  body("dateOfBirth")
+    .optional({ checkFalsy: true })
+    .isDate()
+    .withMessage("Please enter a valid date of birth"),
+  body("nationality")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Nationality cannot be empty"),
+  body("bio")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Bio cannot be empty"),
+  body("phone")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Phone number cannot be empty"),
+  body("address")
+    .optional({ checkFalsy: true })
+    .notEmpty()
+    .withMessage("Address cannot be empty"),
+  // File validation for avatar and resume should be handled separately if needed,
+  // as it's not typically part of body/field validation with express-validator
 ];
 
 exports.deleteAccountValidator = () => [

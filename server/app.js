@@ -8,7 +8,17 @@ dotenv.config({ path: "./config/config.env" });
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+// Configure CORS for the frontend origin and credentials
+const corsOptions = {
+  origin: "http://localhost:5173", // Allow requests from your frontend origin
+  credentials: true, // Allow cookies/auth headers
+  // Optionally allow specific methods and headers if needed
+  // methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  // allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 
 // Serve static files from uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));

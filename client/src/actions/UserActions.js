@@ -154,6 +154,65 @@ export const updateProfile = (userData) => async (dispatch) => {
   }
 };
 
+export const updateProfileImage = (formData) => async (dispatch) => {
+  try {
+    dispatch(updateProfileRequest());
+
+    const config = {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+        "Content-Type": "multipart/form-data",
+      },
+    };
+
+    const { data } = await axios.put(
+      "http://localhost:3000/api/v1/updateProfile",
+      formData,
+      config
+    );
+
+    dispatch(updateProfileSuccess());
+    dispatch(me());
+  } catch (err) {
+    dispatch(
+      updateProfileFail(
+        err.response?.data?.message || "Failed to update profile image"
+      )
+    );
+    throw err;
+  }
+};
+
+export const updateResume = (formData) => async (dispatch) => {
+  try {
+    dispatch(updateProfileRequest());
+
+    const config = {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+        "Content-Type": "multipart/form-data",
+      },
+    };
+
+    const { data } = await axios.put(
+      "http://localhost:3000/api/v1/updateResume",
+      formData,
+      config
+    );
+
+    dispatch(updateProfileSuccess());
+    dispatch(me());
+    return data;
+  } catch (err) {
+    dispatch(
+      updateProfileFail(
+        err.response?.data?.message || "Failed to update resume"
+      )
+    );
+    throw err;
+  }
+};
+
 export const deleteAccount = (userData) => async (dispatch) => {
   try {
     console.log(userData);

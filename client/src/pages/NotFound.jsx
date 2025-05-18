@@ -1,20 +1,52 @@
 import { Link } from "react-router-dom";
+import { FaHome } from "react-icons/fa";
+import { MdErrorOutline } from "react-icons/md";
 
 function NotFound() {
-    return (
-        <main className="flex flex-col md:flex-col xl:flex-row w-100 px-4 py-20 sm:px-6 md:px-8 lg:px-10 bg-black">
-            <div className="flex flex-col justify-center items-center px-4 py-20 md:px-8 lg:px-2 text-gray-700 w-full">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl mb-4 text-white">
-                    404 - Not Found!
-                </h1>
-                <p className="text-base items-center sm:text-lg md:text-xl mt-8 mb-10 text-center text-white w-full max-w-[900px]">
-                    Sorry! the page your are looking for was either not found or does not exist. Try refreshing the page or click the button below to go back to the home page.
-                </p>
-                <Link to="/"><button className="w-40 text-white font-semibold px-4 py-2 rounded blueCol md:text-sm text-xs mb-10">Go to Home</button></Link>
+  return (
+    <main className="bg-gray-50 min-h-screen py-10 px-4 md:px-20">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl border border-blue-200 relative overflow-hidden transform transition-transform duration-300 hover:scale-[1.02]">
+        {/* Subtle background element for AI vibe */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-gray-50 opacity-60"></div>
+        <div className="relative z-10">
+          <div className="flex justify-center mb-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-100 rounded-full blur-xl opacity-50 animate-pulse"></div>
+              <MdErrorOutline className="text-8xl text-blue-700 relative z-10 transform transition-transform duration-300 hover:scale-110" />
             </div>
+          </div>
 
-        </main>
-    )
+          <div className="text-center mb-8">
+            <h1 className="text-6xl md:text-8xl font-bold text-gray-800 mb-4 transform transition-transform duration-300 hover:scale-105">
+              404
+            </h1>
+
+            <h2 className="text-2xl md:text-3xl font-semibold text-blue-700 mb-4">
+              Page Not Found
+            </h2>
+
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              Oops! The page you're looking for seems to have vanished into thin
+              air. Don't worry, let's get you back on track.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <Link to="/">
+              <button className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <span className="absolute inset-0 w-full h-full transition duration-300 ease-out transform translate-x-1 translate-y-1 bg-blue-600 group-hover:-translate-x-0 group-hover:-translate-y-0"></span>
+                <span className="absolute inset-0 w-full h-full bg-blue-500 border-2 border-blue-600 group-hover:bg-blue-600"></span>
+                <span className="relative flex items-center gap-2">
+                  <FaHome className="text-lg transform transition-transform duration-300 group-hover:scale-110" />
+                  Back to Home
+                </span>
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 export default NotFound;

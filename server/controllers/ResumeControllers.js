@@ -37,7 +37,7 @@ exports.uploadTempResume = async (req, res) => {
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-    
+
     if (!allowedTypes.includes(req.file.mimetype)) {
       // Delete the uploaded file
       fs.unlinkSync(req.file.path);
@@ -51,46 +51,45 @@ exports.uploadTempResume = async (req, res) => {
     const fileExt = path.extname(req.file.originalname);
     const tempFileName = `temp-${req.user._id}-${Date.now()}${fileExt}`;
     const tempFilePath = path.join(tempUploadDir, tempFileName);
-    
+
     // Create a read stream from the uploaded file
     const readStream = fs.createReadStream(req.file.path);
     // Create a write stream to the temporary location
     const writeStream = fs.createWriteStream(tempFilePath);
-    
+
     // Pipe the read stream to the write stream
     readStream.pipe(writeStream);
-    
+
     // When the copying is done
-    writeStream.on('finish', async () => {
+    writeStream.on("finish", async () => {
       // Delete the original uploaded file
       fs.unlinkSync(req.file.path);
-      
+
       // Create temporary resume entry in database
       const tempResume = await TempResume.create({
         userId: req.user._id,
-        filePath: tempFilePath
+        filePath: tempFilePath,
       });
-      
+
       res.status(200).json({
         success: true,
         message: "Resume uploaded temporarily",
         tempResumeId: tempResume._id,
-        filePath: tempFilePath
+        filePath: tempFilePath,
       });
     });
-    
+
     // Handle errors during the copying process
-    writeStream.on('error', (err) => {
+    writeStream.on("error", (err) => {
       console.error("Error copying file:", err);
       // Cleanup original file
       fs.unlinkSync(req.file.path);
       return res.status(500).json({
         success: false,
         message: "Error saving temporary file",
-        error: err.message
+        error: err.message,
       });
     });
-    
   } catch (err) {
     // Delete the uploaded file if there's an error
     if (req.file) {
@@ -108,11 +107,14 @@ exports.uploadTempResume = async (req, res) => {
 exports.analyzeTempResume = async (req, res) => {
   try {
     const { tempResumeId } = req.params;
-    
+
     // Find the temporary resume
     const tempResume = await TempResume.findById(tempResumeId);
-    
-    if (!tempResume || tempResume.userId.toString() !== req.user._id.toString()) {
+
+    if (
+      !tempResume ||
+      tempResume.userId.toString() !== req.user._id.toString()
+    ) {
       return res.status(404).json({
         success: false,
         message: "Temporary resume not found or not authorized",
@@ -120,7 +122,7 @@ exports.analyzeTempResume = async (req, res) => {
     }
 
     // Check if resume is a PDF file
-    if (!tempResume.filePath.endsWith('.pdf')) {
+    if (!tempResume.filePath.endsWith(".pdf")) {
       return res.status(400).json({
         success: false,
         message: "Only PDF resumes can be analyzed at this time.",
@@ -145,11 +147,12 @@ exports.analyzeTempResume = async (req, res) => {
       const pdfData = await pdfParse(resumeBuffer);
       resumeText = pdfData.text;
       console.log(resumeText);
-      
+
       if (!resumeText || resumeText.trim().length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Could not extract text from the resume. The PDF might be scanned or protected.",
+          message:
+            "Could not extract text from the resume. The PDF might be scanned or protected.",
         });
       }
     } catch (error) {
@@ -184,18 +187,19 @@ Be concise and use bullet points or short phrases in each array. Only output val
     try {
       // Track start time for performance monitoring
       const startTime = Date.now();
-      
+
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a professional resume analyst that provides feedback in valid JSON format only."
+          {
+            role: "system",
+            content:
+              "You are a professional resume analyst that provides feedback in valid JSON format only.",
           },
-          { 
-            role: "user", 
-            content: prompt 
-          }
+          {
+            role: "user",
+            content: prompt,
+          },
         ],
         temperature: 0.7,
       });
@@ -205,52 +209,60 @@ Be concise and use bullet points or short phrases in each array. Only output val
 
       // Extract the response content
       const responseContent = completion.choices[0].message.content.trim();
-      
+
       // Get token usage from the response
       const tokenUsage = completion.usage;
-      
+
       // Calculate cost based on current OpenAI pricing (as of knowledge cutoff)
       // gpt-3.5-turbo pricing: ~$0.0015 per 1K input tokens, ~$0.002 per 1K output tokens
       const inputTokensCost = (tokenUsage.prompt_tokens / 1000) * 0.0015;
       const outputTokensCost = (tokenUsage.completion_tokens / 1000) * 0.002;
       const totalCost = inputTokensCost + outputTokensCost;
-      
+
       // Log token usage and cost information
-      console.log('OpenAI API Usage Stats:');
+      console.log("OpenAI API Usage Stats:");
       console.log(`Model: gpt-3.5-turbo`);
       console.log(`Response time: ${elapsedTime.toFixed(2)} seconds`);
-      console.log(`Input tokens: ${tokenUsage.prompt_tokens} (Cost: $${inputTokensCost.toFixed(6)})`);
-      console.log(`Output tokens: ${tokenUsage.completion_tokens} (Cost: $${outputTokensCost.toFixed(6)})`);
+      console.log(
+        `Input tokens: ${
+          tokenUsage.prompt_tokens
+        } (Cost: $${inputTokensCost.toFixed(6)})`
+      );
+      console.log(
+        `Output tokens: ${
+          tokenUsage.completion_tokens
+        } (Cost: $${outputTokensCost.toFixed(6)})`
+      );
       console.log(`Total tokens: ${tokenUsage.total_tokens}`);
       console.log(`Estimated cost: $${totalCost.toFixed(6)}`);
-      
+
       // Update user's API usage statistics
       const user = await User.findById(req.user._id);
       if (!user.apiUsage) {
         user.apiUsage = {
           totalTokens: 0,
           totalCost: 0,
-          analysisHistory: []
+          analysisHistory: [],
         };
       }
-      
+
       // Increment total usage
       user.apiUsage.totalTokens += tokenUsage.total_tokens;
       user.apiUsage.totalCost += totalCost;
       user.apiUsage.lastAnalysisDate = new Date();
-      
+
       // Add to analysis history
       user.apiUsage.analysisHistory.push({
         date: new Date(),
         inputTokens: tokenUsage.prompt_tokens,
         outputTokens: tokenUsage.completion_tokens,
         totalTokens: tokenUsage.total_tokens,
-        cost: totalCost
+        cost: totalCost,
       });
-      
+
       // Save user with updated usage stats
       await user.save();
-      
+
       // Try to parse the JSON response
       let analysisResult;
       try {
@@ -266,14 +278,15 @@ Be concise and use bullet points or short phrases in each array. Only output val
             return res.status(500).json({
               success: false,
               message: "Failed to parse the analysis result.",
-              error: "The AI response could not be correctly formatted as JSON."
+              error:
+                "The AI response could not be correctly formatted as JSON.",
             });
           }
         } else {
           return res.status(500).json({
             success: false,
             message: "Failed to parse the analysis result.",
-            error: "The AI response could not be correctly formatted as JSON."
+            error: "The AI response could not be correctly formatted as JSON.",
           });
         }
       }
@@ -293,13 +306,13 @@ Be concise and use bullet points or short phrases in each array. Only output val
           output_tokens: tokenUsage.completion_tokens,
           total_tokens: tokenUsage.total_tokens,
           estimated_cost_usd: totalCost,
-          response_time_seconds: elapsedTime
+          response_time_seconds: elapsedTime,
         },
         total_usage: {
           total_tokens: user.apiUsage.totalTokens,
           total_cost_usd: user.apiUsage.totalCost,
-          analysis_count: user.apiUsage.analysisHistory.length
-        }
+          analysis_count: user.apiUsage.analysisHistory.length,
+        },
       });
     } catch (error) {
       console.error("OpenAI API error:", error);
@@ -322,20 +335,23 @@ Be concise and use bullet points or short phrases in each array. Only output val
 exports.saveResume = async (req, res) => {
   try {
     const { tempResumeId } = req.params;
-    
+
     // Find the temporary resume
     const tempResume = await TempResume.findById(tempResumeId);
-    
-    if (!tempResume || tempResume.userId.toString() !== req.user._id.toString()) {
+
+    if (
+      !tempResume ||
+      tempResume.userId.toString() !== req.user._id.toString()
+    ) {
       return res.status(404).json({
         success: false,
         message: "Temporary resume not found or not authorized",
       });
     }
-    
+
     // Get the user
     const user = await User.findById(req.user._id);
-    
+
     // Delete old resume if it exists
     if (user.resume) {
       try {
@@ -351,32 +367,43 @@ exports.saveResume = async (req, res) => {
         // Continue with the save process even if deletion fails
       }
     }
-    
+
     // Create the permanent resume path
     const resumesDir = path.join(__dirname, "../public/uploads/resumes");
     ensureDirectoryExists(resumesDir);
-    
+
     const fileExt = path.extname(tempResume.filePath);
     const resumeFileName = `resume-${user._id}-${Date.now()}${fileExt}`;
     const resumeFilePath = path.join(resumesDir, resumeFileName);
-    
+
     // Copy from temp to permanent location
     fs.copyFileSync(tempResume.filePath, resumeFilePath);
-    
-    // Update the user's resume path
-    user.resume = resumeFilePath;
+
+    // Store relative path with backslashes
+    const relativePath = path.join(
+      "public",
+      "uploads",
+      "resumes",
+      resumeFileName
+    );
+
+    // Update the user's resume data
+    user.resume = relativePath;
+    user.resumeAnalysis = tempResume.analysis; // Save the analysis results
+    user.resumeUpdatedAt = new Date();
     await user.save();
-    
+
     // Delete temporary file
     fs.unlinkSync(tempResume.filePath);
-    
+
     // Delete temporary resume entry
     await TempResume.findByIdAndDelete(tempResumeId);
-    
+
     return res.status(200).json({
       success: true,
       message: "Resume saved permanently",
-      resumePath: resumeFilePath
+      resumePath: resumeFilePath,
+      analysis: tempResume.analysis,
     });
   } catch (err) {
     console.error("Error saving resume:", err);
@@ -391,30 +418,33 @@ exports.saveResume = async (req, res) => {
 exports.discardResume = async (req, res) => {
   try {
     const { tempResumeId } = req.params;
-    
+
     // Find the temporary resume
     const tempResume = await TempResume.findById(tempResumeId);
-    
-    if (!tempResume || tempResume.userId.toString() !== req.user._id.toString()) {
+
+    if (
+      !tempResume ||
+      tempResume.userId.toString() !== req.user._id.toString()
+    ) {
       return res.status(404).json({
         success: false,
         message: "Temporary resume not found or not authorized",
       });
     }
-    
+
     // Delete the file
     try {
       fs.unlinkSync(tempResume.filePath);
     } catch (err) {
       console.error("Error deleting temporary file:", err);
     }
-    
+
     // Delete from database
     await TempResume.findByIdAndDelete(tempResumeId);
-    
+
     return res.status(200).json({
       success: true,
-      message: "Temporary resume discarded successfully"
+      message: "Temporary resume discarded successfully",
     });
   } catch (err) {
     console.error("Error discarding resume:", err);
@@ -429,7 +459,7 @@ exports.discardResume = async (req, res) => {
 exports.getUserResume = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user.resume) {
       return res.status(404).json({
         success: false,
@@ -453,7 +483,7 @@ exports.getUserResume = async (req, res) => {
 exports.deleteResume = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user.resume) {
       return res.status(404).json({
         success: false,
@@ -488,7 +518,7 @@ exports.deleteResume = async (req, res) => {
 exports.analyzeResume = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user.resume) {
       return res.status(404).json({
         success: false,
@@ -497,7 +527,7 @@ exports.analyzeResume = async (req, res) => {
     }
 
     // Check if resume is a PDF file
-    if (!user.resume.endsWith('.pdf')) {
+    if (!user.resume.endsWith(".pdf")) {
       return res.status(400).json({
         success: false,
         message: "Only PDF resumes can be analyzed at this time.",
@@ -522,11 +552,12 @@ exports.analyzeResume = async (req, res) => {
       const pdfData = await pdfParse(resumeBuffer);
       resumeText = pdfData.text;
       console.log(resumeText);
-      
+
       if (!resumeText || resumeText.trim().length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Could not extract text from the resume. The PDF might be scanned or protected.",
+          message:
+            "Could not extract text from the resume. The PDF might be scanned or protected.",
         });
       }
     } catch (error) {
@@ -561,18 +592,19 @@ Be concise and use bullet points or short phrases in each array. Only output val
     try {
       // Track start time for performance monitoring
       const startTime = Date.now();
-      
+
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a professional resume analyst that provides feedback in valid JSON format only."
+          {
+            role: "system",
+            content:
+              "You are a professional resume analyst that provides feedback in valid JSON format only.",
           },
-          { 
-            role: "user", 
-            content: prompt 
-          }
+          {
+            role: "user",
+            content: prompt,
+          },
         ],
         temperature: 0.7,
       });
@@ -582,51 +614,59 @@ Be concise and use bullet points or short phrases in each array. Only output val
 
       // Extract the response content
       const responseContent = completion.choices[0].message.content.trim();
-      
+
       // Get token usage from the response
       const tokenUsage = completion.usage;
-      
+
       // Calculate cost based on current OpenAI pricing (as of knowledge cutoff)
       // gpt-3.5-turbo pricing: ~$0.0015 per 1K input tokens, ~$0.002 per 1K output tokens
       const inputTokensCost = (tokenUsage.prompt_tokens / 1000) * 0.0015;
       const outputTokensCost = (tokenUsage.completion_tokens / 1000) * 0.002;
       const totalCost = inputTokensCost + outputTokensCost;
-      
+
       // Log token usage and cost information
-      console.log('OpenAI API Usage Stats:');
+      console.log("OpenAI API Usage Stats:");
       console.log(`Model: gpt-3.5-turbo`);
       console.log(`Response time: ${elapsedTime.toFixed(2)} seconds`);
-      console.log(`Input tokens: ${tokenUsage.prompt_tokens} (Cost: $${inputTokensCost.toFixed(6)})`);
-      console.log(`Output tokens: ${tokenUsage.completion_tokens} (Cost: $${outputTokensCost.toFixed(6)})`);
+      console.log(
+        `Input tokens: ${
+          tokenUsage.prompt_tokens
+        } (Cost: $${inputTokensCost.toFixed(6)})`
+      );
+      console.log(
+        `Output tokens: ${
+          tokenUsage.completion_tokens
+        } (Cost: $${outputTokensCost.toFixed(6)})`
+      );
       console.log(`Total tokens: ${tokenUsage.total_tokens}`);
       console.log(`Estimated cost: $${totalCost.toFixed(6)}`);
-      
+
       // Update user's API usage statistics
       if (!user.apiUsage) {
         user.apiUsage = {
           totalTokens: 0,
           totalCost: 0,
-          analysisHistory: []
+          analysisHistory: [],
         };
       }
-      
+
       // Increment total usage
       user.apiUsage.totalTokens += tokenUsage.total_tokens;
       user.apiUsage.totalCost += totalCost;
       user.apiUsage.lastAnalysisDate = new Date();
-      
+
       // Add to analysis history
       user.apiUsage.analysisHistory.push({
         date: new Date(),
         inputTokens: tokenUsage.prompt_tokens,
         outputTokens: tokenUsage.completion_tokens,
         totalTokens: tokenUsage.total_tokens,
-        cost: totalCost
+        cost: totalCost,
       });
-      
+
       // Save user with updated usage stats
       await user.save();
-      
+
       // Try to parse the JSON response
       let analysisResult;
       try {
@@ -642,14 +682,15 @@ Be concise and use bullet points or short phrases in each array. Only output val
             return res.status(500).json({
               success: false,
               message: "Failed to parse the analysis result.",
-              error: "The AI response could not be correctly formatted as JSON."
+              error:
+                "The AI response could not be correctly formatted as JSON.",
             });
           }
         } else {
           return res.status(500).json({
             success: false,
             message: "Failed to parse the analysis result.",
-            error: "The AI response could not be correctly formatted as JSON."
+            error: "The AI response could not be correctly formatted as JSON.",
           });
         }
       }
@@ -664,13 +705,13 @@ Be concise and use bullet points or short phrases in each array. Only output val
           output_tokens: tokenUsage.completion_tokens,
           total_tokens: tokenUsage.total_tokens,
           estimated_cost_usd: totalCost,
-          response_time_seconds: elapsedTime
+          response_time_seconds: elapsedTime,
         },
         total_usage: {
           total_tokens: user.apiUsage.totalTokens,
           total_cost_usd: user.apiUsage.totalCost,
-          analysis_count: user.apiUsage.analysisHistory.length
-        }
+          analysis_count: user.apiUsage.analysisHistory.length,
+        },
       });
     } catch (error) {
       console.error("OpenAI API error:", error);
@@ -693,7 +734,7 @@ Be concise and use bullet points or short phrases in each array. Only output val
 exports.getApiUsageStats = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user.apiUsage) {
       return res.status(200).json({
         success: true,
@@ -703,26 +744,31 @@ exports.getApiUsageStats = async (req, res) => {
           totalCost: 0,
           analysisCount: 0,
           lastAnalysisDate: null,
-          history: []
-        }
+          history: [],
+        },
       });
     }
 
     // Prepare a summary of usage history by month
     const monthlySummary = {};
-    if (user.apiUsage.analysisHistory && user.apiUsage.analysisHistory.length > 0) {
-      user.apiUsage.analysisHistory.forEach(record => {
+    if (
+      user.apiUsage.analysisHistory &&
+      user.apiUsage.analysisHistory.length > 0
+    ) {
+      user.apiUsage.analysisHistory.forEach((record) => {
         const date = new Date(record.date);
-        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
+        const monthYear = `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}`;
+
         if (!monthlySummary[monthYear]) {
           monthlySummary[monthYear] = {
             totalTokens: 0,
             totalCost: 0,
-            analysisCount: 0
+            analysisCount: 0,
           };
         }
-        
+
         monthlySummary[monthYear].totalTokens += record.totalTokens;
         monthlySummary[monthYear].totalCost += record.cost;
         monthlySummary[monthYear].analysisCount += 1;
@@ -735,28 +781,32 @@ exports.getApiUsageStats = async (req, res) => {
       apiUsage: {
         totalTokens: user.apiUsage.totalTokens || 0,
         totalCost: parseFloat((user.apiUsage.totalCost || 0).toFixed(6)),
-        analysisCount: user.apiUsage.analysisHistory ? user.apiUsage.analysisHistory.length : 0,
+        analysisCount: user.apiUsage.analysisHistory
+          ? user.apiUsage.analysisHistory.length
+          : 0,
         lastAnalysisDate: user.apiUsage.lastAnalysisDate,
-        monthlySummary: Object.entries(monthlySummary).map(([month, stats]) => ({
-          month,
-          totalTokens: stats.totalTokens,
-          totalCost: parseFloat(stats.totalCost.toFixed(6)),
-          analysisCount: stats.analysisCount
-        })).sort((a, b) => b.month.localeCompare(a.month)), // Sort by most recent month
+        monthlySummary: Object.entries(monthlySummary)
+          .map(([month, stats]) => ({
+            month,
+            totalTokens: stats.totalTokens,
+            totalCost: parseFloat(stats.totalCost.toFixed(6)),
+            analysisCount: stats.analysisCount,
+          }))
+          .sort((a, b) => b.month.localeCompare(a.month)), // Sort by most recent month
         // Last 5 analyses for reference
-        recentHistory: user.apiUsage.analysisHistory 
+        recentHistory: user.apiUsage.analysisHistory
           ? user.apiUsage.analysisHistory
               .sort((a, b) => new Date(b.date) - new Date(a.date))
               .slice(0, 5)
-              .map(record => ({
+              .map((record) => ({
                 date: record.date,
                 inputTokens: record.inputTokens,
                 outputTokens: record.outputTokens,
                 totalTokens: record.totalTokens,
-                cost: parseFloat(record.cost.toFixed(6))
+                cost: parseFloat(record.cost.toFixed(6)),
               }))
-          : []
-      }
+          : [],
+      },
     });
   } catch (err) {
     console.error("Error fetching API usage stats:", err);
@@ -765,4 +815,4 @@ exports.getApiUsageStats = async (req, res) => {
       message: err.message,
     });
   }
-}; 
+};
