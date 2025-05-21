@@ -8,45 +8,58 @@ const mongoose = require('mongoose')
 // Creates a new application
 exports.createApplication = async (req, res) => {
     try {
-
         const job = await Job.findById(req.params.id);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: "Job not found"
+            });
+        }
+
         const user = await User.findById(req.user._id);
+        
+        // Check if user has uploaded a resume
+        if (!user.resume) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload your resume before applying"
+            });
+        }
 
         if (user.appliedJobs.includes(job._id)) {
             return res.status(400).json({
                 success: false,
-                message: "you are already applied"
-            })
+                message: "You have already applied to this job"
+            });
         }
 
-        const application = await Application.create(
-            {
-                job: job._id,
-                applicant: user._id,
-                applicantResume: {
-                    public_id: user.resume.public_id,
-                    url: user.resume.url
-                }
+        // Create application with the resume path
+        const application = await Application.create({
+            job: job._id,
+            applicant: user._id,
+            applicantResume: {
+                public_id: `resume_${user._id}`,  // Generate a unique ID
+                url: user.resume  // Use the resume path directly
             }
-        )
-        user.appliedJobs.push(job._id)
+        });
+
+        // Store the application ID instead of job ID
+        user.appliedJobs.push(application._id);
         await user.save();
 
         res.status(200).json({
             success: true,
-            message: "Application created",
+            message: "Application created successfully",
             application
-        })
-
+        });
 
     } catch (err) {
         res.status(500).json({
             success: false,
             message: err.message
-        })
+        });
     }
-
-}
+};
 
 
 // Get a single application
