@@ -8,6 +8,8 @@ const {
   updateProfile,
   deleteAccount,
   uploadFile,
+  getNotifications,
+  markNotificationAsRead,
 } = require("../controllers/UserControllers");
 const { isAuthenticated } = require("../middlewares/auth");
 const {
@@ -83,5 +85,9 @@ router
     upload.fields([{ name: "resume", maxCount: 1 }]),
     updateProfile
   );
+
+// Notification routes
+router.get("/notifications", isAuthenticated, getNotifications);
+router.put("/notifications/:id/read", isAuthenticated, markNotificationAsRead);
 
 module.exports = router;

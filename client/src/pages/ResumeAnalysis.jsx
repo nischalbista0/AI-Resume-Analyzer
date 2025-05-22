@@ -5,6 +5,21 @@ import { FaRegFileWord } from "react-icons/fa";
 import { BsCheckCircleFill } from "react-icons/bs";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { Link, useNavigate } from "react-router-dom";
+
+const getFileUrl = (filePath) => {
+  if (!filePath) return null;
+
+  // If filePath is an object with url property
+  if (typeof filePath === "object" && filePath.url) {
+    const normalizedPath = filePath.url
+      .replace(/^.*[\\\/]uploads[\\\/]/, "uploads/")
+      .replace(/\\/g, "/");
+    return `http://localhost:3000/${normalizedPath}`;
+  }
+
+  return null;
+};
 
 // Use hardcoded API URL as requested
 const API_URL = "http://localhost:3000/api/v1";
@@ -24,6 +39,7 @@ export const ResumeAnalysis = () => {
 
   // New state for Job Postings
   const [jobPostings, setJobPostings] = useState([]);
+  const [internalJobs, setInternalJobs] = useState([]); // New state for internal jobs
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [loadingMoreJobs, setLoadingMoreJobs] = useState(false);
   const [currentJobPage, setCurrentJobPage] = useState(1);
@@ -39,6 +55,8 @@ export const ResumeAnalysis = () => {
   const atsTips = analysisData?.ats_tips || [];
   const jobMatches = analysisData?.job_matches || [];
   const professionalDevelopment = analysisData?.professional_development || [];
+
+  const navigate = useNavigate();
 
   // Function to fetch YouTube courses based on professional development recommendations
   const fetchYoutubeCourses = async (recommendations, page = 1) => {
@@ -125,60 +143,106 @@ export const ResumeAnalysis = () => {
     }
 
     try {
-      let allJobs = [];
+      // Create a single search query from all job matches
+      const searchQuery = jobMatches.join(" OR ");
 
-      // Search for each job match
-      for (const jobQuery of jobMatches) {
-        const options = {
-          method: "GET",
-          url: "https://jsearch.p.rapidapi.com/search",
-          params: {
-            query: jobQuery,
-            page: page.toString(), // API expects string
-            num_pages: "1", // Fetch one page at a time
-            date_posted: "all",
-            limit: "8", // Limit to 8 jobs per query
-          },
-          headers: {
-            "x-rapidapi-key":
-              "7318af8020msh13b0e4ec2d7b8b7p134e91jsn5ae19029597d",
-            "x-rapidapi-host": "jsearch.p.rapidapi.com",
-          },
-        };
+      const options = {
+        method: "GET",
+        url: "https://jsearch.p.rapidapi.com/search",
+        params: {
+          query: searchQuery,
+          page: page.toString(),
+          num_pages: "1",
+          date_posted: "all",
+          limit: "20", // Increased limit to get more results in one call
+        },
+        headers: {
+          "x-rapidapi-key":
+            "7318af8020msh13b0e4ec2d7b8b7p134e91jsn5ae19029597d",
+          "x-rapidapi-host": "jsearch.p.rapidapi.com",
+        },
+      };
 
-        const response = await axios.request(options);
-        if (response.data && response.data.data) {
-          // Add the original job match as a category
-          const jobsWithCategory = response.data.data.map((job) => ({
+      const response = await axios.request(options);
+      if (response.data && response.data.data) {
+        // Filter and categorize jobs based on matches
+        const categorizedJobs = response.data.data.map((job) => {
+          // Find the best matching category
+          const bestMatch = jobMatches.find(
+            (match) =>
+              job.job_title.toLowerCase().includes(match.toLowerCase()) ||
+              job.job_description.toLowerCase().includes(match.toLowerCase())
+          );
+
+          return {
             ...job,
-            category: jobQuery,
-          }));
-          allJobs = [...allJobs, ...jobsWithCategory];
+            category: bestMatch || jobMatches[0], // Fallback to first category if no match
+          };
+        });
+
+        // Remove duplicates based on job_id
+        const uniqueJobs = Array.from(
+          new Map(categorizedJobs.map((job) => [job.job_id, job])).values()
+        );
+
+        // Limit to 8 jobs for initial load
+        const limitedJobs = page === 1 ? uniqueJobs.slice(0, 8) : uniqueJobs;
+
+        if (page === 1) {
+          setJobPostings(limitedJobs);
+        } else {
+          setJobPostings((prev) => [...prev, ...limitedJobs]);
         }
+
+        // Check if we have more jobs to load
+        setHasMoreJobs(uniqueJobs.length > 0);
       }
-
-      // Remove duplicates based on job_id
-      const uniqueJobs = Array.from(
-        new Map(allJobs.map((job) => [job.job_id, job])).values()
-      );
-
-      // Limit to 8 jobs for initial load
-      const limitedJobs = page === 1 ? uniqueJobs.slice(0, 8) : uniqueJobs;
-
-      if (page === 1) {
-        setJobPostings(limitedJobs);
-      } else {
-        setJobPostings((prev) => [...prev, ...limitedJobs]);
-      }
-
-      // Check if we have more jobs to load
-      setHasMoreJobs(uniqueJobs.length > 0);
     } catch (error) {
       console.error("Error fetching job postings:", error);
       toast.error("Failed to fetch recommended job postings");
     } finally {
       setLoadingJobs(false);
       setLoadingMoreJobs(false);
+    }
+  };
+
+  // Function to fetch internal jobs based on job matches
+  const fetchInternalJobs = async (jobMatches) => {
+    if (!jobMatches || jobMatches.length === 0) return;
+
+    try {
+      const userToken = localStorage.getItem("userToken");
+      if (!userToken) {
+        toast.error("You must be logged in to view job recommendations");
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/jobs`, {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+        withCredentials: true,
+      });
+
+      if (response.data.success && response.data.Jobs) {
+        // Create a single regex pattern for all job matches
+        const matchPattern = new RegExp(
+          jobMatches.map((match) => match.toLowerCase()).join("|"),
+          "i"
+        );
+
+        // Filter jobs based on the combined pattern
+        const matchedJobs = response.data.Jobs.filter(
+          (job) =>
+            matchPattern.test(job.title.toLowerCase()) ||
+            matchPattern.test(job.description.toLowerCase())
+        );
+
+        setInternalJobs(matchedJobs);
+      }
+    } catch (error) {
+      console.error("Error fetching internal jobs:", error);
+      toast.error("Failed to fetch internal job recommendations");
     }
   };
 
@@ -203,12 +267,19 @@ export const ResumeAnalysis = () => {
     }
   }, [analysisResult]);
 
-  // Effect to fetch job postings when analysis is complete and job matches are available
+  // Update the useEffect to fetch both internal and external jobs in parallel
   useEffect(() => {
     if (analysisResult?.success && analysisData?.job_matches) {
       setCurrentJobPage(1);
       setHasMoreJobs(true);
-      fetchJobPostings(analysisData.job_matches, 1);
+
+      // Fetch both internal and external jobs in parallel
+      Promise.all([
+        fetchInternalJobs(analysisData.job_matches),
+        fetchJobPostings(analysisData.job_matches, 1),
+      ]).catch((error) => {
+        console.error("Error fetching jobs:", error);
+      });
     }
   }, [analysisResult]);
 
@@ -371,11 +442,23 @@ export const ResumeAnalysis = () => {
         }
       );
 
-      toast.success("Resume saved successfully!", { id: "saveToast" });
-      // Reset the form
-      setSelectedFile(null);
-      setTempResumeId(null);
-      setAnalysisResult(null);
+      if (response.data.success) {
+        // Update user data in localStorage
+        const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+        userData.resume = response.data.resumePath;
+        userData.resumeAnalysis = response.data.analysis;
+        localStorage.setItem("userData", JSON.stringify(userData));
+
+        toast.success("Resume saved successfully!", { id: "saveToast" });
+
+        // Reset the form
+        setSelectedFile(null);
+        setTempResumeId(null);
+        setAnalysisResult(null);
+
+        // Navigate to dashboard
+        navigate("/dashboard");
+      }
     } catch (err) {
       console.error("Error saving resume:", err);
       toast.error(err.response?.data?.message || "Failed to save resume.");
@@ -715,444 +798,263 @@ export const ResumeAnalysis = () => {
                   </div>
                 </div>
 
-                {/* Conditional Rendering based on Resume Score */}
-                {resumeScore >= 70 ? (
-                  <>
-                    {/* Job Postings Section - Show First for Strong Resumes */}
-                    {analysisResult.success && analysisData && (
-                      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
-                        <div className="relative z-10">
-                          <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                            Recommended{" "}
-                            <span className="text-blue-700">Job Postings</span>
-                          </h2>
-                          <p className="text-gray-600 mb-8">
-                            Your resume shows strong potential! Here are some
-                            job opportunities that match your profile.
-                          </p>
+                {/* Internal Jobs Section */}
+                {internalJobs.length > 0 && (
+                  <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+                        Direct{" "}
+                        <span className="text-blue-700">Job Applications</span>
+                      </h2>
+                      <p className="text-gray-600 mb-8">
+                        These are jobs where you can apply directly through our
+                        platform. Your resume has been matched with these
+                        positions based on your skills and experience.
+                      </p>
 
-                          {loadingJobs ? (
-                            <div className="text-center py-8">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">
-                                Loading recommended job postings...
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {internalJobs.map((job, index) => (
+                          <div
+                            key={index}
+                            className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                          >
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-12 h-12 rounded-md overflow-hidden bg-white p-1">
+                                <img
+                                  src={
+                                    getFileUrl(job.companyLogo) ||
+                                    "https://via.placeholder.com/48?text=No+Logo"
+                                  }
+                                  alt={`${job.companyName} logo`}
+                                  className="w-full h-full object-contain"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src =
+                                      "https://via.placeholder.com/48?text=No+Logo";
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
+                                  {job.title}
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-1">
+                                  {job.companyName} - {job.location}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-2">
+                                  {job.employmentType}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mb-3">
+                              <p className="text-sm text-gray-700 line-clamp-3">
+                                {job.description}
                               </p>
                             </div>
-                          ) : jobPostings.length > 0 ? (
-                            <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {jobPostings.map((job, index) => (
-                                  <div
-                                    key={index}
-                                    className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
-                                  >
-                                    <div className="flex items-start gap-3 mb-3">
-                                      {job.employer_logo && (
-                                        <img
-                                          src={job.employer_logo}
-                                          alt={`${job.employer_name} logo`}
-                                          className="w-12 h-12 object-contain rounded-md bg-white p-1"
-                                        />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="mb-2">
-                                          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                            {job.category}
-                                          </span>
-                                        </div>
-                                        <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
-                                          {job.job_title}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mb-1">
-                                          {job.employer_name} - {job.job_city},{" "}
-                                          {job.job_state}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                          Posted by {job.job_publisher}
-                                        </p>
-                                      </div>
-                                    </div>
 
-                                    <div className="mb-3">
-                                      <p className="text-sm text-gray-700 line-clamp-3">
-                                        {job.job_description}
-                                      </p>
-                                    </div>
-
-                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-500">
-                                          {job.job_employment_type}
-                                        </span>
-                                        {job.employer_website && (
-                                          <a
-                                            href={job.employer_website}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 text-sm"
-                                          >
-                                            Company Website
-                                          </a>
-                                        )}
-                                      </div>
-                                      {job.job_apply_link && (
-                                        <a
-                                          href={job.job_apply_link}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                        >
-                                          Apply Now →
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-500">
+                                  {job.experience} years
+                                </span>
+                                <span className="text-sm text-gray-500">
+                                  ${job.salary}
+                                </span>
                               </div>
-
-                              {hasMoreJobs && (
-                                <div className="mt-8 text-center">
-                                  <button
-                                    onClick={handleLoadMoreJobs}
-                                    disabled={loadingMoreJobs}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {loadingMoreJobs ? (
-                                      <span className="flex items-center gap-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        Loading...
-                                      </span>
-                                    ) : (
-                                      "Load More Job Postings"
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-center py-8 text-gray-600">
-                              No recommended job postings available at the
-                              moment.
+                              <Link
+                                to={`/details/${job._id}`}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                Apply Now →
+                              </Link>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
 
-                    {/* YouTube Courses Section - Show Second for Strong Resumes */}
-                    {analysisResult.success && analysisData && (
-                      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
-                        <div className="relative z-10">
-                          <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                            Recommended{" "}
-                            <span className="text-blue-700">
-                              Learning Resources
-                            </span>
-                          </h2>
-                          <p className="text-gray-600 mb-8">
-                            Keep your skills sharp with these recommended
-                            courses to stay ahead in your career.
-                          </p>
+                {/* External Jobs Section */}
+                {jobPostings.length > 0 && (
+                  <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+                        External{" "}
+                        <span className="text-blue-700">Job Opportunities</span>
+                      </h2>
+                      <p className="text-gray-600 mb-8">
+                        Here are some additional job opportunities from external
+                        sources that match your profile. Click on the links to
+                        apply directly on their websites.
+                      </p>
 
-                          {loadingCourses ? (
-                            <div className="text-center py-8">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">
-                                Loading recommended resources...
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {jobPostings.map((job, index) => (
+                          <div
+                            key={index}
+                            className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                          >
+                            <div className="flex items-start gap-3 mb-3">
+                              {job.employer_logo && (
+                                <img
+                                  src={job.employer_logo}
+                                  alt={`${job.employer_name} logo`}
+                                  className="w-12 h-12 object-contain rounded-md bg-white p-1"
+                                />
+                              )}
+                              <div className="flex-1">
+                                <div className="mb-2">
+                                  <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                    {job.category}
+                                  </span>
+                                </div>
+                                <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
+                                  {job.job_title}
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-1">
+                                  {job.employer_name} - {job.job_city},{" "}
+                                  {job.job_state}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-2">
+                                  Posted by {job.job_publisher}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mb-3">
+                              <p className="text-sm text-gray-700 line-clamp-3">
+                                {job.job_description}
                               </p>
                             </div>
-                          ) : youtubeCourses.length > 0 ? (
-                            <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {youtubeCourses.map((course, index) => (
-                                  <div
-                                    key={index}
-                                    className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
-                                  >
-                                    <div className="aspect-video mb-4 bg-gray-200 rounded-lg overflow-hidden">
-                                      <img
-                                        src={course.thumbnails[0].url}
-                                        alt={course.title}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                    <div className="mb-2">
-                                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                        {course.category}
-                                      </span>
-                                    </div>
-                                    <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
-                                      {course.title}
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                      {course.description}
-                                    </p>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-sm text-gray-500">
-                                        {course.channel_name}
-                                      </span>
-                                      <a
-                                        href={`https://www.youtube.com/watch?v=${course.video_id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                      >
-                                        Watch Video →
-                                      </a>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
 
-                              {hasMore && (
-                                <div className="mt-8 text-center">
-                                  <button
-                                    onClick={handleLoadMore}
-                                    disabled={loadingMore}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-500">
+                                  {job.job_employment_type}
+                                </span>
+                                {job.employer_website && (
+                                  <a
+                                    href={job.employer_website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 text-sm"
                                   >
-                                    {loadingMore ? (
-                                      <span className="flex items-center gap-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        Loading...
-                                      </span>
-                                    ) : (
-                                      "Load More Videos"
-                                    )}
-                                  </button>
-                                </div>
+                                    Company Website
+                                  </a>
+                                )}
+                              </div>
+                              {job.job_apply_link && (
+                                <a
+                                  href={job.job_apply_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                >
+                                  Apply Now →
+                                </a>
                               )}
-                            </>
-                          ) : (
-                            <div className="text-center py-8 text-gray-600">
-                              No recommended learning resources available at the
-                              moment.
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {/* YouTube Courses Section - Show First for Weak Resumes */}
-                    {analysisResult.success && analysisData && (
-                      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
-                        <div className="relative z-10">
-                          <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                            Recommended{" "}
-                            <span className="text-blue-700">
-                              Learning Resources
-                            </span>
-                          </h2>
-                          <p className="text-gray-600 mb-8">
-                            Enhance your skills with these recommended courses
-                            to strengthen your resume and increase your chances
-                            of landing your dream job.
+                    </div>
+                  </div>
+                )}
+
+                {/* YouTube Courses Section - Show Second for Strong Resumes */}
+                {analysisResult.success && analysisData && (
+                  <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+                        Recommended{" "}
+                        <span className="text-blue-700">
+                          Learning Resources
+                        </span>
+                      </h2>
+                      <p className="text-gray-600 mb-8">
+                        Keep your skills sharp with these recommended courses to
+                        stay ahead in your career.
+                      </p>
+
+                      {loadingCourses ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">
+                            Loading recommended resources...
                           </p>
-
-                          {loadingCourses ? (
-                            <div className="text-center py-8">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">
-                                Loading recommended resources...
-                              </p>
-                            </div>
-                          ) : youtubeCourses.length > 0 ? (
-                            <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {youtubeCourses.map((course, index) => (
-                                  <div
-                                    key={index}
-                                    className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
-                                  >
-                                    <div className="aspect-video mb-4 bg-gray-200 rounded-lg overflow-hidden">
-                                      <img
-                                        src={course.thumbnails[0].url}
-                                        alt={course.title}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                    <div className="mb-2">
-                                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                        {course.category}
-                                      </span>
-                                    </div>
-                                    <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
-                                      {course.title}
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                      {course.description}
-                                    </p>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-sm text-gray-500">
-                                        {course.channel_name}
-                                      </span>
-                                      <a
-                                        href={`https://www.youtube.com/watch?v=${course.video_id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                      >
-                                        Watch Video →
-                                      </a>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {hasMore && (
-                                <div className="mt-8 text-center">
-                                  <button
-                                    onClick={handleLoadMore}
-                                    disabled={loadingMore}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {loadingMore ? (
-                                      <span className="flex items-center gap-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        Loading...
-                                      </span>
-                                    ) : (
-                                      "Load More Videos"
-                                    )}
-                                  </button>
+                        </div>
+                      ) : youtubeCourses.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {youtubeCourses.map((course, index) => (
+                              <div
+                                key={index}
+                                className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                              >
+                                <div className="aspect-video mb-4 bg-gray-200 rounded-lg overflow-hidden">
+                                  <img
+                                    src={course.thumbnails[0].url}
+                                    alt={course.title}
+                                    className="w-full h-full object-cover"
+                                  />
                                 </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-center py-8 text-gray-600">
-                              No recommended learning resources available at the
-                              moment.
+                                <div className="mb-2">
+                                  <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                    {course.category}
+                                  </span>
+                                </div>
+                                <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
+                                  {course.title}
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                  {course.description}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-500">
+                                    {course.channel_name}
+                                  </span>
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${course.video_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  >
+                                    Watch Video →
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {hasMore && (
+                            <div className="mt-8 text-center">
+                              <button
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {loadingMore ? (
+                                  <span className="flex items-center gap-2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  "Load More Videos"
+                                )}
+                              </button>
                             </div>
                           )}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-gray-600">
+                          No recommended learning resources available at the
+                          moment.
                         </div>
-                      </div>
-                    )}
-
-                    {/* Job Postings Section - Show Second for Weak Resumes */}
-                    {analysisResult.success && analysisData && (
-                      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-10 border border-blue-200 relative overflow-hidden">
-                        <div className="relative z-10">
-                          <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                            Recommended{" "}
-                            <span className="text-blue-700">Job Postings</span>
-                          </h2>
-                          <p className="text-gray-600 mb-8">
-                            While you work on improving your skills, here are
-                            some job opportunities to consider. Remember to
-                            enhance your resume based on the recommendations
-                            above.
-                          </p>
-
-                          {loadingJobs ? (
-                            <div className="text-center py-8">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">
-                                Loading recommended job postings...
-                              </p>
-                            </div>
-                          ) : jobPostings.length > 0 ? (
-                            <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {jobPostings.map((job, index) => (
-                                  <div
-                                    key={index}
-                                    className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
-                                  >
-                                    <div className="flex items-start gap-3 mb-3">
-                                      {job.employer_logo && (
-                                        <img
-                                          src={job.employer_logo}
-                                          alt={`${job.employer_name} logo`}
-                                          className="w-12 h-12 object-contain rounded-md bg-white p-1"
-                                        />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="mb-2">
-                                          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                            {job.category}
-                                          </span>
-                                        </div>
-                                        <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
-                                          {job.job_title}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mb-1">
-                                          {job.employer_name} - {job.job_city},{" "}
-                                          {job.job_state}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                          Posted by {job.job_publisher}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <div className="mb-3">
-                                      <p className="text-sm text-gray-700 line-clamp-3">
-                                        {job.job_description}
-                                      </p>
-                                    </div>
-
-                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-500">
-                                          {job.job_employment_type}
-                                        </span>
-                                        {job.employer_website && (
-                                          <a
-                                            href={job.employer_website}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 text-sm"
-                                          >
-                                            Company Website
-                                          </a>
-                                        )}
-                                      </div>
-                                      {job.job_apply_link && (
-                                        <a
-                                          href={job.job_apply_link}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                        >
-                                          Apply Now →
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {hasMoreJobs && (
-                                <div className="mt-8 text-center">
-                                  <button
-                                    onClick={handleLoadMoreJobs}
-                                    disabled={loadingMoreJobs}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {loadingMoreJobs ? (
-                                      <span className="flex items-center gap-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        Loading...
-                                      </span>
-                                    ) : (
-                                      "Load More Job Postings"
-                                    )}
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-center py-8 text-gray-600">
-                              No recommended job postings available at the
-                              moment.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {/* Action Buttons */}

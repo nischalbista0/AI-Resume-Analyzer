@@ -1,6 +1,7 @@
 const Company = require("../models/CompanyModel");
 const Job = require("../models/JobModel");
 const Application = require("../models/AppModel");
+const Notification = require("../models/NotificationModel");
 const bcrypt = require("bcrypt");
 const { createCompanyToken } = require("../middlewares/companyAuth");
 const fs = require("fs");
@@ -9,7 +10,7 @@ const fs = require("fs");
 exports.uploadFile = async (req, res) => {
   try {
     console.log("Files received:", req.files);
-    
+
     if (!req.files) {
       return res.status(400).json({
         success: false,
@@ -34,7 +35,7 @@ exports.uploadFile = async (req, res) => {
 
     // Handle other document uploads if needed
     if (req.files.documents) {
-      uploadedFiles.documents = req.files.documents.map(file => file.path);
+      uploadedFiles.documents = req.files.documents.map((file) => file.path);
     }
 
     res.status(200).json({
@@ -45,15 +46,15 @@ exports.uploadFile = async (req, res) => {
   } catch (err) {
     // Clean up any uploaded files in case of error
     if (req.files) {
-      Object.values(req.files).forEach(fileArray => {
-        fileArray.forEach(file => {
+      Object.values(req.files).forEach((fileArray) => {
+        fileArray.forEach((file) => {
           if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
           }
         });
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: err.message,
@@ -64,7 +65,8 @@ exports.uploadFile = async (req, res) => {
 // Register company
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, website, location, description } = req.body;
+    const { name, email, password, phone, website, location, description } =
+      req.body;
 
     // Check if company already exists
     const existingCompany = await Company.findOne({ email });
@@ -157,7 +159,9 @@ exports.login = async (req, res) => {
 // Get company profile
 exports.getProfile = async (req, res) => {
   try {
-    const company = await Company.findById(req.company._id).populate("postedJobs");
+    const company = await Company.findById(req.company._id).populate(
+      "postedJobs"
+    );
     res.status(200).json({
       success: true,
       company,
@@ -236,7 +240,7 @@ exports.postJob = async (req, res) => {
       experience,
       salary,
       postedBy: req.company._id,
-      status: "active"
+      status: "active",
     });
 
     // Add job to company's postedJobs
@@ -264,12 +268,12 @@ exports.getPostedJobs = async (req, res) => {
     const jobs = await Job.find({ postedBy: req.company._id })
       .sort({ createdAt: -1 }) // Sort by newest first
       .populate({
-        path: 'postedBy',
-        select: 'name email' // Select only necessary fields
+        path: "postedBy",
+        select: "name email", // Select only necessary fields
       });
 
-    console.log('Company ID:', req.company._id);
-    console.log('Found Jobs:', jobs);
+    console.log("Company ID:", req.company._id);
+    console.log("Found Jobs:", jobs);
 
     res.status(200).json({
       success: true,
@@ -277,7 +281,7 @@ exports.getPostedJobs = async (req, res) => {
       jobs,
     });
   } catch (err) {
-    console.error('Error in getPostedJobs:', err);
+    console.error("Error in getPostedJobs:", err);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -327,7 +331,11 @@ exports.updateApplicationStatus = async (req, res) => {
     const { status } = req.body;
 
     const application = await Application.findById(applicationId)
-      .populate("job");
+      .populate({
+        path: "job",
+        select: "postedBy title",
+      })
+      .populate("applicant", "name email");
 
     if (!application) {
       return res.status(404).json({
@@ -337,7 +345,7 @@ exports.updateApplicationStatus = async (req, res) => {
     }
 
     // Verify that the company owns this job
-    if (application.job.company.toString() !== req.company._id.toString()) {
+    if (application.job.postedBy.toString() !== req.company._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized to update this application",
@@ -346,6 +354,16 @@ exports.updateApplicationStatus = async (req, res) => {
 
     application.status = status;
     await application.save();
+
+    // Create notification for the applicant
+    const notification = await Notification.create({
+      recipient: application.applicant._id,
+      type: "application_status",
+      title: `Application ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      message: `Your application for ${application.job.title} has been ${status}.`,
+      job: application.job._id,
+      application: application._id,
+    });
 
     res.status(200).json({
       success: true,
@@ -358,4 +376,122 @@ exports.updateApplicationStatus = async (req, res) => {
       message: err.message,
     });
   }
-}; 
+};
+
+// Delete a job
+exports.deleteJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    // Find the job and verify ownership
+    const job = await Job.findOne({
+      _id: jobId,
+      postedBy: req.company._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found or unauthorized",
+      });
+    }
+
+    // Delete the job
+    await Job.findByIdAndDelete(jobId);
+
+    // Remove job from company's postedJobs array
+    const company = await Company.findById(req.company._id);
+    company.postedJobs = company.postedJobs.filter(
+      (job) => job.toString() !== jobId
+    );
+    await company.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Job deleted successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// Get a single job
+exports.getJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    // Find the job and verify ownership
+    const job = await Job.findOne({
+      _id: jobId,
+      postedBy: req.company._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found or unauthorized",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      job,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// Update a job
+exports.updateJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    // Find the job and verify ownership
+    const job = await Job.findOne({
+      _id: jobId,
+      postedBy: req.company._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found or unauthorized",
+      });
+    }
+
+    // Update job fields
+    const updatedJob = await Job.findByIdAndUpdate(
+      jobId,
+      {
+        title: req.body.title,
+        description: req.body.description,
+        location: req.body.location,
+        skillsRequired: req.body.skillsRequired,
+        category: req.body.category,
+        employmentType: req.body.employmentType,
+        experience: req.body.experience,
+        salary: req.body.salary,
+        status: req.body.status,
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Job updated successfully",
+      job: updatedJob,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

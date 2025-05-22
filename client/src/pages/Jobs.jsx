@@ -1,70 +1,81 @@
 import React, { useEffect, useState } from "react";
 import { MetaData } from "../components/MetaData";
-import { FiSearch } from "react-icons/fi";
+import { FiSearch, FiFilter } from "react-icons/fi";
 import { Loader } from "../components/Loader";
 import { JobCard } from "../components/JobCard";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllJobs, getSingleJob } from "../actions/JobActions";
-import { Slider } from "@mantine/core";
 import { RxCross2 } from "react-icons/rx";
-import { Pagination } from "@mantine/core";
+import { motion } from "framer-motion";
 import useIsMobile from "../hooks/useIsMobile";
 
 export const Jobs = () => {
   const dispatch = useDispatch();
-  const { allJobs, loading } = useSelector((state) => state.job);
+  const { allJobs = [], loading } = useSelector((state) => state.job || {});
 
-  const [baseJobs, setBaseJobs] = useState([]); // New state for base jobs
+  const [baseJobs, setBaseJobs] = useState([]);
   const [jobs, setJobs] = useState([]);
-
   const [category, setCategory] = useState("");
-  const [salary, setSalary] = useState(0);
-  const [company, setCompany] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [experience, setExperience] = useState("");
   const [search, setSearch] = useState("");
-
   const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
 
   const isMobile = useIsMobile();
 
-  const data = ["Technology", "Marketing", "Finance", "Sales", "Legal"];
-
-  const companyData = [
-    "Google",
-    "Apple",
-    "Paypal",
-    "Samsung",
-    "Amazon",
-    "Oracle",
+  // Get unique categories from jobs
+  const categories = [
+    ...new Set(allJobs.map((job) => job?.category).filter(Boolean)),
   ];
 
-  console.log(allJobs.length);
+  // Job types
+  const jobTypes = [
+    "Full-time",
+    "Part-time",
+    "Contract",
+    "Internship",
+    "Remote",
+  ];
+
+  // Experience levels
+  const experienceLevels = [
+    "Entry Level",
+    "Mid Level",
+    "Senior Level",
+    "Executive",
+  ];
 
   useEffect(() => {
     dispatch(getAllJobs());
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
-    setJobs(allJobs);
-    setBaseJobs(allJobs); // Set base jobs when allJobs changes
+    if (Array.isArray(allJobs)) {
+      setJobs(allJobs);
+      setBaseJobs(allJobs);
+    }
   }, [allJobs]);
 
   useEffect(() => {
-    const searchArr = baseJobs.filter((e) =>
-      e.title.toLowerCase().includes(search.toLowerCase().trim())
-    );
+    if (Array.isArray(baseJobs)) {
+      const searchArr = baseJobs.filter((e) =>
+        e?.title?.toLowerCase().includes(search.toLowerCase().trim())
+      );
 
-    if (search === "") {
-      setJobs(baseJobs);
-    } else {
-      setJobs(searchArr);
+      if (search === "") {
+        setJobs(baseJobs);
+      } else {
+        setJobs(searchArr);
+      }
     }
   }, [search, baseJobs]);
 
   const searchHandler = () => {
-    console.log(search);
+    if (!Array.isArray(baseJobs)) return;
 
     const searchArr = baseJobs.filter((e) =>
-      e.title.toLowerCase().includes(search.toLowerCase())
+      e?.title?.toLowerCase().includes(search.toLowerCase())
     );
 
     if (search !== "") {
@@ -74,47 +85,49 @@ export const Jobs = () => {
     }
   };
 
-  const leftFilter = (jobsList) => {
-    if (category == "" && salary == 0) {
-      setJobs(allJobs);
-      return;
-    }
-    const leftFilArr = jobsList.filter(
-      (item) =>
-        item.category.toLowerCase() === category.toLowerCase() &&
-        parseInt(item.salary) >= salary
-    );
-    setJobs(leftFilArr);
-  };
+  const applyFilters = () => {
+    if (!Array.isArray(baseJobs)) return;
 
-  const removeLeftFilter = () => {
-    setCategory("");
-    setSalary(0);
-    rightFilter(allJobs);
+    let filteredJobs = [...baseJobs];
+
+    // Apply category filter
+    if (category) {
+      filteredJobs = filteredJobs.filter(
+        (job) => job?.category?.toLowerCase() === category.toLowerCase()
+      );
+    }
+
+    // Apply job type filter
+    if (jobType) {
+      filteredJobs = filteredJobs.filter(
+        (job) => job?.jobType?.toLowerCase() === jobType.toLowerCase()
+      );
+    }
+
+    // Apply experience filter
+    if (experience) {
+      filteredJobs = filteredJobs.filter(
+        (job) => job?.experience?.toLowerCase() === experience.toLowerCase()
+      );
+    }
+
+    setJobs(filteredJobs);
     setCurrentPage(1);
   };
 
-  const rightFilter = (jobsList) => {
-    if (company == "") {
-      setJobs(allJobs);
-      return;
-    }
-    const rightFilArr = jobsList.filter(
-      (item) => item.companyName.toLowerCase() === company.toLowerCase()
-    );
-    setJobs(rightFilArr);
-  };
-  const removeRightFilter = () => {
-    setCompany("");
-    leftFilter(allJobs);
+  const clearFilters = () => {
+    setCategory("");
+    setJobType("");
+    setExperience("");
+    setJobs(baseJobs);
     setCurrentPage(1);
   };
 
   // Pagination
-
   const itemsPerPage = 5;
-
-  const totalPageCount = Math.ceil(jobs.length / itemsPerPage);
+  const totalPageCount = Math.ceil(
+    (Array.isArray(jobs) ? jobs.length : 0) / itemsPerPage
+  );
 
   const handleNextPage = () => {
     setCurrentPage((prevPage) => Math.min(prevPage + 1, totalPageCount));
@@ -131,10 +144,12 @@ export const Jobs = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
 
-  const displayedData = jobs.slice(startIndex, endIndex);
+  const displayedData = Array.isArray(jobs)
+    ? jobs.slice(startIndex, endIndex)
+    : [];
 
   const pageButtons = [];
-  const maxButtonsToShow = 3; // Maximum number of page buttons to show
+  const maxButtonsToShow = 3;
 
   let startButton = Math.max(1, currentPage - Math.floor(maxButtonsToShow / 2));
   let endButton = Math.min(totalPageCount, startButton + maxButtonsToShow - 1);
@@ -144,10 +159,10 @@ export const Jobs = () => {
       <button
         key={i}
         onClick={() => handlePageChange(i)}
-        className={`mx-1 px-3 py-1 border border-gray-700 rounded ${
+        className={`mx-1 px-3 py-1 border border-gray-700 rounded transition-all duration-200 ${
           currentPage === i
-            ? "bg-gray-800  text-white"
-            : "bg-gray-900  text-white hover:bg-gray-800 hover:text-white"
+            ? "bg-blue-600 text-white border-blue-600"
+            : "bg-white text-gray-700 hover:bg-gray-50"
         }`}
       >
         {i}
@@ -155,288 +170,243 @@ export const Jobs = () => {
     );
   }
 
-  // Pagination
-
   return (
     <>
       <MetaData title="Jobs" />
-      <div className="bg-gray-50 min-h-screen pt-14 sm:px-20 px-3">
-        {loading ? (
-          <Loader />
-        ) : (
-          <>
-            <div className="flex-col flex justify-center items-center w-full">
-              <div className="text-center pt-8 sm:text-3xl text-2xl font-medium text-gray-800">
-                <p>Find your dream job now</p>
-              </div>
-              <div className="py-3 pt-4 w-full flex justify-center items-center">
-                <div className="flex justify-center w-full items-center">
-                  <div className="bg-white flex sm:w-2/5 w-4/5 shadow-sm border border-gray-200 rounded-lg">
-                    <div className="flex justify-center items-center pl-2 text-gray-500">
-                      <FiSearch size={19} />
-                    </div>
+      <div className="min-h-screen bg-gray-50">
+        {/* Hero Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold mb-4">Find Your Dream Job</h1>
+              <p className="text-xl text-blue-100 mb-8">
+                Discover thousands of job opportunities with all the information
+                you need
+              </p>
+
+              {/* Search Bar */}
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center bg-white rounded-lg shadow-lg p-2">
+                  <div className="flex-1 flex items-center px-4">
+                    <FiSearch className="text-gray-400 text-xl" />
                     <input
                       value={search}
-                      placeholder="Search Jobs"
+                      placeholder="Search jobs by title, company, or keywords"
                       onChange={(e) => setSearch(e.target.value)}
                       type="text"
-                      className="outline-none text-gray-700 px-2 pl-3 sm:h-10 w-full h-8 py-1 text-sm"
+                      className="ml-3 w-full outline-none text-gray-700"
                     />
-                    <div className="text-gray-500 items-center flex justify-center px-2">
+                    {search && (
                       <RxCross2
                         onClick={() => setSearch("")}
-                        size={19}
-                        className={`cursor-pointer ${
-                          search.length !== 0 ? "flex" : "hidden"
-                        }`}
+                        className="text-gray-400 cursor-pointer hover:text-gray-600"
+                        size={20}
                       />
-                    </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={searchHandler}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {loading ? (
+            <div className="flex justify-center items-center min-h-[400px]">
+              <Loader />
+            </div>
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Filters Section */}
+              <div className="lg:w-1/4">
+                <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      Filters
+                    </h2>
                     <button
-                      onClick={() => searchHandler()}
-                      className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 sm:text-sm text-xs px-4 sm:h-10 h-8 py-1 rounded-r-lg"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="lg:hidden text-gray-600 hover:text-gray-800"
                     >
-                      Search
+                      <FiFilter size={20} />
                     </button>
+                  </div>
+
+                  <div
+                    className={`${
+                      showFilters ? "block" : "hidden"
+                    } lg:block space-y-6`}
+                  >
+                    {/* Categories */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-4">
+                        Categories
+                      </h3>
+                      <div className="space-y-2">
+                        {categories.map((cat, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCategory(cat)}
+                            className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 ${
+                              category === cat
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Job Type */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-4">
+                        Job Type
+                      </h3>
+                      <div className="space-y-2">
+                        {jobTypes.map((type, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setJobType(type)}
+                            className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 ${
+                              jobType === type
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Experience Level */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-4">
+                        Experience Level
+                      </h3>
+                      <div className="space-y-2">
+                        {experienceLevels.map((level, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setExperience(level)}
+                            className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 ${
+                              experience === level
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filter Actions */}
+                    <div className="space-y-3 pt-4">
+                      <button
+                        onClick={applyFilters}
+                        className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                      >
+                        Apply Filters
+                      </button>
+                      <button
+                        onClick={clearFilters}
+                        className="w-full bg-gray-100 text-gray-700 py-2 rounded-md hover:bg-gray-200 transition-colors duration-200"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col pt-1 justify-between sm:flex-row w-full">
-                {!isMobile && (
-                  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <div className="flex justify-start flex-col">
-                      <p className="text-lg font-medium text-gray-800 mb-4">
-                        Categories
-                      </p>
-                      <ul className="flex pt-3 flex-col gap-3">
-                        {data.map((e, i) => (
-                          <li
-                            key={i}
-                            onClick={() => setCategory(e)}
-                            className={`hover:text-blue-600 cursor-pointer transition-colors duration-300 ${
-                              category === e ? "text-blue-600" : "text-gray-600"
-                            }`}
-                          >
-                            {e}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="pt-5">
-                        <p className="text-lg font-medium text-gray-800 mb-4">
-                          Salary Range
-                        </p>
-                        <Slider
-                          color="blue"
-                          className="outline-none w-44"
-                          onChange={setSalary}
-                          value={salary}
-                          min={0}
-                          max={2000000}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-4 w-2/3 pt-5">
-                        <button
-                          onClick={() => leftFilter(jobs)}
-                          className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 px-4 py-2 rounded-md text-sm"
-                        >
-                          Apply Filter
-                        </button>
-                        <button
-                          onClick={() => removeLeftFilter()}
-                          className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors duration-300 px-4 py-2 rounded-md text-sm"
-                        >
-                          Remove Filter
-                        </button>
-                      </div>
+              {/* Jobs List */}
+              <div className="lg:w-3/4">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      {jobs.length} Jobs Found
+                    </h2>
+                    <div className="text-sm text-gray-500">
+                      Page {currentPage} of {totalPageCount}
                     </div>
                   </div>
-                )}
 
-                <div className="sm:w-2/4 pb-20 pt-2">
-                  <div className="flex flex-col sm:overflow-y-auto sm:max-h-[30em] gap-4">
-                    {jobs &&
+                  <div className="space-y-4">
+                    {Array.isArray(displayedData) &&
                       displayedData
-                        .filter((job) => job._id)
+                        .filter((job) => job?._id)
                         .sort((a, b) => {
-                          const dateA = new Date(a.createdAt);
-                          const dateB = new Date(b.createdAt);
+                          const dateA = new Date(a?.createdAt || 0);
+                          const dateB = new Date(b?.createdAt || 0);
                           return dateB - dateA;
                         })
                         .map((job, i) => (
-                          <JobCard
-                            onClick={() => {
-                              dispatch(getSingleJob(job._id));
-                            }}
-                            key={i}
-                            job={job}
-                          />
-                        ))}
-
-                    <div
-                      className={`${
-                        jobs.length == 0 ? "flex" : "hidden"
-                      } w-full justify-center items-center text-center pt-16 pb-12 sm:text-xl text-lg text-gray-600`}
-                    >
-                      No Jobs available according to your preferences
-                    </div>
-                  </div>
-
-                  <div className="justify-center pt-20 items-center">
-                    <div className="flex flex-col">
-                      {/* Pagination */}
-                      <div className="flex justify-center mt-1">
-                        <button
-                          onClick={handlePrevPage}
-                          disabled={currentPage === 1}
-                          className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 mr-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-
-                        {pageButtons}
-
-                        <button
-                          onClick={handleNextPage}
-                          disabled={currentPage === totalPageCount}
-                          className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 ml-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      </div>
-
-                      {/* Mobile Filters */}
-                      <div className="flex justify-between pt-10 px-6">
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 sm:hidden flex flex-col">
-                          <div className="flex justify-start flex-col">
-                            <p className="text-lg font-medium text-gray-800 mb-4">
-                              Categories
-                            </p>
-                            <ul className="flex pt-3 text-sm flex-col gap-3">
-                              {data.map((e, i) => (
-                                <li
-                                  key={i}
-                                  onClick={() => setCategory(e)}
-                                  className={`hover:text-blue-600 cursor-pointer transition-colors duration-300 ${
-                                    category === e
-                                      ? "text-blue-600"
-                                      : "text-gray-600"
-                                  }`}
-                                >
-                                  {e}
-                                </li>
-                              ))}
-                            </ul>
-                            <div className="pt-5">
-                              <p className="text-lg font-medium text-gray-800 mb-4">
-                                Salary Range
-                              </p>
-                              <Slider
-                                color="blue"
-                                className="outline-none w-32"
-                                onChange={setSalary}
-                                value={salary}
-                                min={0}
-                                max={2000000}
-                              />
-                            </div>
-                            <div className="flex text-sm flex-col gap-4 w-2/3 pt-5">
-                              <button
-                                onClick={() => leftFilter(jobs)}
-                                className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 px-4 py-2 rounded-md"
-                              >
-                                Apply Filter
-                              </button>
-                              <button
-                                onClick={() => removeLeftFilter()}
-                                className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors duration-300 px-4 py-2 rounded-md"
-                              >
-                                Remove Filter
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 sm:hidden flex flex-col ml-16">
-                          <div className="flex justify-end flex-col">
-                            <p className="text-lg font-medium text-gray-800 mb-4">
-                              Companies
-                            </p>
-                            <div className="pt-3 flex flex-col justify-end text-right gap-3">
-                              {companyData.map((e, i) => (
-                                <div
-                                  key={i}
-                                  onClick={() => setCompany(e)}
-                                  className={`${
-                                    company === e
-                                      ? "text-blue-600"
-                                      : "text-gray-600"
-                                  } cursor-pointer text-sm hover:text-blue-600 transition-colors duration-300`}
-                                >
-                                  {e}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex text-sm flex-col gap-4 pt-5">
-                              <button
-                                onClick={() => rightFilter(jobs)}
-                                className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 px-4 py-2 rounded-md"
-                              >
-                                Apply Search
-                              </button>
-                              <button
-                                onClick={() => removeRightFilter()}
-                                className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors duration-300 px-4 py-2 rounded-md"
-                              >
-                                Remove Search
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {!isMobile && (
-                  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col ml-16">
-                    <div className="flex justify-end flex-col">
-                      <p className="text-lg font-medium text-gray-800 mb-4">
-                        Companies
-                      </p>
-                      <div className="pt-3 flex flex-col justify-end text-right gap-3">
-                        {companyData.map((e, i) => (
-                          <div
-                            key={i}
-                            onClick={() => setCompany(e)}
-                            className={`${
-                              company === e ? "text-blue-600" : "text-gray-600"
-                            } cursor-pointer hover:text-blue-600 transition-colors duration-300`}
+                          <motion.div
+                            key={job._id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: i * 0.1 }}
                           >
-                            {e}
-                          </div>
+                            <JobCard
+                              onClick={() => {
+                                if (job?._id) {
+                                  dispatch(getSingleJob(job._id));
+                                }
+                              }}
+                              job={job}
+                            />
+                          </motion.div>
                         ))}
+
+                    {(!Array.isArray(jobs) || jobs.length === 0) && (
+                      <div className="text-center py-12">
+                        <div className="text-gray-500 text-lg mb-2">
+                          No jobs found matching your criteria
+                        </div>
+                        <p className="text-gray-400">
+                          Try adjusting your filters or search terms
+                        </p>
                       </div>
-                      <div className="flex flex-col gap-4 pt-5">
-                        <button
-                          onClick={() => rightFilter(jobs)}
-                          className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 px-4 py-2 rounded-md text-sm"
-                        >
-                          Apply Search
-                        </button>
-                        <button
-                          onClick={() => removeRightFilter()}
-                          className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors duration-300 px-4 py-2 rounded-md text-sm"
-                        >
-                          Remove Search
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Pagination */}
+                  {Array.isArray(jobs) && jobs.length > 0 && (
+                    <div className="mt-8 flex justify-center items-center space-x-2">
+                      <button
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      >
+                        Previous
+                      </button>
+
+                      {pageButtons}
+
+                      <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPageCount}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

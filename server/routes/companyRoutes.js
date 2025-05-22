@@ -13,6 +13,9 @@ const {
   getJobApplications,
   updateApplicationStatus,
   uploadFile,
+  deleteJob,
+  getJob,
+  updateJob,
 } = require("../controllers/CompanyControllers");
 
 // Error handling middleware
@@ -38,15 +41,17 @@ router.route("/upload").post(
     next();
   },
   isCompanyAuthenticated,
-  upload.fields([
-    { name: "logo", maxCount: 1 }
-  ]),
+  upload.fields([{ name: "logo", maxCount: 1 }]),
   handleMulterError,
   uploadFile
 );
 
 // Authentication routes
-router.post("/register", upload.fields([{ name: "logo", maxCount: 1 }]), register);
+router.post(
+  "/register",
+  upload.fields([{ name: "logo", maxCount: 1 }]),
+  register
+);
 router.post("/login", login);
 
 // Protected routes (require company authentication)
@@ -61,6 +66,9 @@ router.put(
 // Job management routes
 router.post("/jobs", isCompanyAuthenticated, postJob);
 router.get("/jobs", isCompanyAuthenticated, getPostedJobs);
+router.get("/jobs/:jobId", isCompanyAuthenticated, getJob);
+router.put("/jobs/:jobId", isCompanyAuthenticated, updateJob);
+router.delete("/jobs/:jobId", isCompanyAuthenticated, deleteJob);
 router.get(
   "/jobs/:jobId/applications",
   isCompanyAuthenticated,
@@ -72,4 +80,4 @@ router.put(
   updateApplicationStatus
 );
 
-module.exports = router; 
+module.exports = router;

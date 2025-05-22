@@ -4,12 +4,20 @@ import {
   MdOutlineDashboardCustomize,
   MdOutlineAccountCircle,
   MdOutlineArticle,
+  MdOutlineBusinessCenter,
+  MdOutlineWorkOutline,
+  MdOutlinePeople,
+  MdOutlineAdminPanelSettings,
+  MdOutlineListAlt,
+  MdOutlinePerson,
 } from "react-icons/md";
 
 export const Sidebar = ({ isCollapsed }) => {
   const location = useLocation();
+  const isCompany = localStorage.getItem("companyToken");
+  const isAdmin = localStorage.getItem("role") === "admin";
 
-  const sidebarLinks = [
+  const userSidebarLinks = [
     {
       name: "Dashboard",
       icon: MdOutlineDashboardCustomize,
@@ -18,14 +26,61 @@ export const Sidebar = ({ isCollapsed }) => {
     {
       name: "User Profile",
       icon: MdOutlineAccountCircle,
-      path: "/profile", // Assuming the existing profile page will be used
+      path: "/profile",
     },
     {
       name: "Resume Analysis",
       icon: MdOutlineArticle,
-      path: "/resume-analysis", // Placeholder path
+      path: "/resume-analysis",
     },
   ];
+
+  const companySidebarLinks = [
+    {
+      name: "Dashboard",
+      icon: MdOutlineDashboardCustomize,
+      path: "/company/dashboard",
+    },
+    {
+      name: "Company Profile",
+      icon: MdOutlineBusinessCenter,
+      path: "/company/profile",
+    },
+    {
+      name: "Posted Jobs",
+      icon: MdOutlineWorkOutline,
+      path: "/company/jobs",
+    },
+  ];
+
+  const adminSidebarLinks = [
+    {
+      name: "Dashboard",
+      icon: MdOutlineDashboardCustomize,
+      path: "/admin/dashboard",
+    },
+    {
+      name: "All Jobs",
+      icon: MdOutlineWorkOutline,
+      path: "/admin/allJobs",
+    },
+    {
+      name: "All Users",
+      icon: MdOutlinePerson,
+      path: "/admin/allUsers",
+    },
+    {
+      name: "All Applications",
+      icon: MdOutlineListAlt,
+      path: "/admin/allApplications",
+    },
+  ];
+
+  const sidebarLinks = isAdmin
+    ? adminSidebarLinks
+    : isCompany
+    ? companySidebarLinks
+    : userSidebarLinks;
 
   return (
     <div

@@ -1,93 +1,135 @@
-import React, { useEffect, useState } from 'react'
-import { MetaData } from '../components/MetaData'
-import { useParams } from 'react-router'
-import { useDispatch, useSelector } from 'react-redux'
-import { Loader } from '../components/Loader'
-import { toast } from 'react-toastify'
-import { getUserData, updateUser } from '../actions/AdminActions'
-import { Sidebar } from '../components/Sidebar'
-import { RxCross1 } from 'react-icons/rx'
-
+import React, { useEffect, useState } from "react";
+import { MetaData } from "../components/MetaData";
+import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { Loader } from "../components/Loader";
+import { toast } from "react-toastify";
+import { getUserData, updateUser } from "../actions/AdminActions";
+import { FaUserEdit } from "react-icons/fa";
 
 export const EditUserAdmin = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, userData } = useSelector((state) => state.admin);
+  const [role, setRole] = useState("not");
 
-    const { id } = useParams();
+  useEffect(() => {
+    dispatch(getUserData(id));
+  }, [dispatch, id]);
 
-    const dispatch = useDispatch();
-
-    const { loading, userData } = useSelector(state => state.admin)
-
-    const [role, setRole] = useState("not");
-    const [sideTog, setSideTog] = useState(false)
-
-
-    const updateRolehandler = () => {
-        if (role === "not") {
-            toast.info("Please Select Role !")
-        }
-        else {
-            dispatch(updateUser(id,{role}))
-            setRole("not") ;
-        }
+  const updateRoleHandler = () => {
+    if (role === "not") {
+      toast.info("Please select a role!");
+      return;
     }
 
+    dispatch(updateUser(id, { role }));
+    setRole("not");
+    navigate("/admin/allUsers");
+  };
 
-    useEffect(() => {
-        dispatch(getUserData(id));
-    }, [])
+  if (loading || !userData) {
+    return <Loader />;
+  }
 
-
-    return (
-        <>
-            <MetaData title="Edit User Role" />
-            <div className='bg-gray-950 min-h-screen pt-14 md:px-20 px-3 text-white'>
-                {
-                    loading ? <Loader /> :
-
-                        <div>
-                            <div className="pt-1 fixed left-0 z-20 pl-0">
-                                <div onClick={(() => setSideTog(!sideTog))} className='cursor-pointer blueCol px-3 py-2' size={44} >
-                                    {!sideTog ? "Menu" : <RxCross1 />}
-                                </div>
-                            </div>
-
-                            <Sidebar sideTog={sideTog} />
-                            <div className='flex flex-col gap-3 md:px-0 px-3  justify-center items-center md:pt-20 pt-28'>
-
-                                <div className='py-4 md:w-1/3 w-full  px-5 shadow-sm shadow-gray-700 border-gray-700 border'>
-                                    <div className='flex gap-3 border-b border-gray-700  pb-3 text-2xl justify-center items-center'>
-                                       <div className='font-semibold'>Update User</div>
-                                    </div>
-                                    <div className='flex gap-3  pt-3 py-2 text-xl justify-start items-center'>
-                                        <div>Name:</div>
-                                        <div>{userData.name}</div>
-                                    </div>
-                                    <div className='flex gap-3   py-2 text-xl justify-start items-center'>
-                                        <div>Email:</div>
-                                        <div>{userData.email}</div>
-                                    </div>
-                                    <div className='flex gap-3 border-b border-gray-700 py-2 text-xl justify-start items-center'>
-                                        <div>Role:</div>
-                                        <div>{userData.role}</div>
-                                    </div>
-                                    <div className='flex gap-3  pt-4 py-2 text-sm justify-start items-center'>
-                                        <select onChange={(e) => setRole(e.target.value)} id="large" className="block w-full px-6 py-2 text-base  border  bg-gray-900 border-gray-600 placeholder-gray-400 text-white ">
-                                            <option value="not" selected>Select Status</option>
-                                            <option value="admin">Admin</option>
-                                            <option value="applicant">Applicant</option>
-                                        </select>
-                                    </div>
-                                    <div className='flex gap-3 font-semibold  py-2 text-sm '>
-                                        <button onClick={() => updateRolehandler()} className='blueCol px-6 w-full py-2'>Update Role</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                }
+  return (
+    <>
+      <MetaData title="Edit User Role" />
+      <div className="bg-gray-50 min-h-screen pt-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div>
+            <div className="mb-8">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-3 rounded-lg">
+                  <FaUserEdit className="text-blue-600 text-xl" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    Edit User Role
+                  </h1>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Update user role and permissions
+                  </p>
+                </div>
+              </div>
             </div>
 
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+              <div className="space-y-6">
+                {/* User Information */}
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Name
+                    </label>
+                    <div className="mt-1 text-gray-900">{userData.name}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Email
+                    </label>
+                    <div className="mt-1 text-gray-900">{userData.email}</div>
+                  </div>
+                </div>
 
-        </>
-    )
-}
+                {/* Current Role */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Current Role
+                  </label>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        userData.role === "admin"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {userData.role}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Role Selection */}
+                <div>
+                  <label
+                    htmlFor="role"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    New Role
+                  </label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="not">Select Role</option>
+                    <option value="admin">Admin</option>
+                    <option value="applicant">Applicant</option>
+                  </select>
+                </div>
+
+                {/* Update Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={updateRoleHandler}
+                    disabled={loading || role === "not"}
+                    className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
+                      role === "not"
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    }`}
+                  >
+                    {loading ? "Updating..." : "Update Role"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};

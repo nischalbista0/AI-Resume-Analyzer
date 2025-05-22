@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { createToken } = require("../middlewares/auth");
 const fs = require("fs");
 const path = require("path");
+const Notification = require("../models/NotificationModel");
 
 exports.register = async (req, res) => {
   try {
@@ -343,6 +344,57 @@ exports.uploadFile = async (req, res) => {
       success: false,
       message: err.message || "Error uploading file",
       error: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
+  }
+};
+
+// Get user notifications
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipient: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate("job", "title")
+      .populate("application", "status");
+
+    res.status(200).json({
+      success: true,
+      notifications,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// Mark notification as read
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      recipient: req.user._id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    notification.read = true;
+    await notification.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Notification marked as read",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
     });
   }
 };

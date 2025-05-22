@@ -2,11 +2,43 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import useIsMobile from "../hooks/useIsMobile";
-import { MdLocationOn, MdWorkOutline, MdAccessTime } from "react-icons/md";
+import {
+  MdLocationOn,
+  MdWorkOutline,
+  MdAccessTime,
+  MdAttachMoney,
+  MdPerson,
+} from "react-icons/md";
+import { BsBriefcase } from "react-icons/bs";
 
-export const AppliedJobCard = ({ id, job, time }) => {
+const getFileUrl = (filePath) => {
+  if (!filePath) return null;
+
+  // If filePath is an object with url property
+  if (typeof filePath === "object" && filePath.url) {
+    const normalizedPath = filePath.url
+      .replace(/^.*[\\\/]uploads[\\\/]/, "uploads/")
+      .replace(/\\/g, "/");
+    return `http://localhost:3000/${normalizedPath}`;
+  }
+
+  // If filePath is a string
+  if (typeof filePath === "string") {
+    return `http://localhost:3000/${filePath
+      .replace("public\\", "")
+      .replace(/\\/g, "/")}`;
+  }
+
+  return null;
+};
+
+export const AppliedJobCard = ({ id, job, time, status }) => {
   const dispatch = useDispatch();
   const isMobile = useIsMobile();
+
+  if (!job) {
+    return null;
+  }
 
   const convertDateFormat = (inputDate) => {
     const parts = inputDate.split("-");
@@ -19,59 +51,120 @@ export const AppliedJobCard = ({ id, job, time }) => {
     return `${day}-${month}-${year}`;
   };
 
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "accepted":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-yellow-100 text-yellow-800";
+    }
+  };
+
   return (
-    <div className="bg-white hover:bg-gray-50 transition duration-300 rounded-lg p-4 shadow-md border border-gray-200">
-      <div className="flex gap-4 relative">
+    <div className="bg-white hover:shadow-lg transition-all duration-300 rounded-xl p-6 border border-gray-100">
+      <div className="flex gap-6">
+        {/* Company Logo */}
         <div className="flex-shrink-0">
-          <img
-            src={job.companyLogo.url}
-            className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover border border-gray-200"
-            alt={job.companyName}
-          />
-        </div>
-
-        <div className="flex-grow min-w-0">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-lg md:text-xl font-semibold text-gray-800 truncate">
-              {job.title}
-            </h3>
-
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              <MdWorkOutline className="text-blue-500" />
-              <span>{job.companyName}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              <MdLocationOn className="text-blue-500" />
-              <span>{job.exp}</span>
-            </div>
-
-            {!isMobile && (
-              <p className="text-gray-600 text-sm mt-1 line-clamp-2">
-                {job.description}
-              </p>
-            )}
-            {isMobile && (
-              <p className="text-gray-600 text-sm mt-1 line-clamp-1">
-                {job.description}
-              </p>
+          <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+            {job?.companyLogo ? (
+              <img
+                src={getFileUrl(job.companyLogo)}
+                alt={`${job?.companyName || "Company"} logo`}
+                className="w-full h-full object-contain p-2"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://via.placeholder.com/80?text=No+Logo";
+                }}
+              />
+            ) : (
+              <div className="w-full h-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 text-xl font-semibold">
+                  {job?.companyName?.charAt(0) || "C"}
+                </span>
+              </div>
             )}
           </div>
         </div>
 
-        <div className="flex-shrink-0 md:ml-4">
+        {/* Job Details */}
+        <div className="flex-grow min-w-0">
+          <div className="flex flex-col gap-3">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800">
+                {job?.title || "Job Title Not Available"}
+              </h3>
+              <div className="flex items-center gap-2 text-gray-600 mt-1">
+                <MdWorkOutline className="text-blue-500" />
+                <span className="text-sm font-medium">
+                  {job?.companyName || "Company Name Not Available"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2 text-gray-600">
+                <MdLocationOn className="text-blue-500" />
+                <span className="text-sm">
+                  {job?.location || "Location Not Available"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <MdAttachMoney className="text-blue-500" />
+                <span className="text-sm">
+                  ${job?.salary || "Salary Not Available"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <BsBriefcase className="text-blue-500" />
+                <span className="text-sm">
+                  {job?.experience || "Experience Not Available"}
+                </span>
+              </div>
+            </div>
+
+            {!isMobile && (
+              <p className="text-gray-600 text-sm mt-1 line-clamp-2">
+                {job?.description || "Description Not Available"}
+              </p>
+            )}
+            {isMobile && (
+              <p className="text-gray-600 text-sm mt-1 line-clamp-1">
+                {job?.description || "Description Not Available"}
+              </p>
+            )}
+          </div>
+
+          {/* Job Meta */}
+          <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <MdAccessTime className="text-blue-500" />
+              <span>
+                Applied on {convertDateFormat(time?.substr(0, 10) || "N/A")}
+              </span>
+            </div>
+            <span className="text-gray-300">•</span>
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                job?.status
+              )}`}
+            >
+              {job?.status?.charAt(0).toUpperCase() + job?.status?.slice(1) ||
+                "Pending"}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex-shrink-0 flex flex-col gap-3">
           <Link
             to={`/Application/Details/${id}`}
-            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-300 text-sm font-medium"
+            className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md"
           >
-            View Application
+            View Details
           </Link>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 mt-4 text-sm text-gray-600">
-        <MdAccessTime className="text-blue-500" />
-        <span>Applied on {convertDateFormat(time.substr(0, 10))}</span>
       </div>
     </div>
   );

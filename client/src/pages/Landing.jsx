@@ -2,6 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MetaData } from "../components/MetaData.jsx";
 import { useSelector } from "react-redux";
+import { Menu } from "@mantine/core";
+import { FaUserCircle } from "react-icons/fa";
+import { BsBuilding } from "react-icons/bs";
+import { IoIosArrowDown } from "react-icons/io";
 
 export const Landing = () => {
   const { isLogin } = useSelector((state) => state.user);
@@ -27,14 +31,32 @@ export const Landing = () => {
       >
         {/* Dropdown */}
         <div className="absolute top-5 right-5">
-          <Link to="/login">
-            <button
-              // onClick={() => setOpen((o) => !o)}
-              className="bg-sky-400 text-white rounded-full px-6 py-3 text-base font-medium hover:bg-sky-500"
-            >
-              Log In
-            </button>
-          </Link>
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
+              <button className="bg-sky-400 text-white rounded-full px-6 py-3 text-base font-medium hover:bg-sky-500 flex items-center gap-2">
+                Log In
+                <IoIosArrowDown className="text-sm" />
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown className="bg-white rounded-lg shadow-lg border border-gray-100">
+              <Link to="/login">
+                <Menu.Item
+                  icon={<FaUserCircle size={16} className="text-sky-500" />}
+                  className="hover:bg-sky-50 text-gray-700"
+                >
+                  User Login
+                </Menu.Item>
+              </Link>
+              <Link to="/company/login">
+                <Menu.Item
+                  icon={<BsBuilding size={16} className="text-sky-500" />}
+                  className="hover:bg-sky-50 text-gray-700"
+                >
+                  Company Login
+                </Menu.Item>
+              </Link>
+            </Menu.Dropdown>
+          </Menu>
         </div>
 
         {/* Icon */}

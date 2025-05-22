@@ -8,6 +8,9 @@ import { AppliedJobs } from "./pages/AppliedJobs";
 import { SavedJobs } from "./pages/SavedJobs";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { CompanyLogin } from "./pages/CompanyLogin";
+import { CompanyRegister } from "./pages/CompanyRegister";
+import { CompanyProfile } from "./pages/CompanyProfile";
 import { JobDetails } from "./pages/JobDetails";
 import { ChangePassword } from "./pages/ChangePassword";
 import { useSelector, useDispatch } from "react-redux";
@@ -34,6 +37,12 @@ import { Toaster } from "react-hot-toast";
 import { UserDashboard } from "./pages/UserDashboard.jsx";
 import { MainLayout } from "./components/MainLayout.jsx";
 import { ResumeAnalysis } from "./pages/ResumeAnalysis";
+import { CompanyDashboard } from "./pages/CompanyDashboard";
+import { CompanyJobs } from "./pages/CompanyJobs";
+import { EditJob } from "./pages/EditJob";
+import { CompanyApplications } from "./pages/CompanyApplications";
+import { JobApplications } from "./pages/JobApplications";
+import { Notifications } from "./pages/Notifications";
 
 function App() {
   const dispatch = useDispatch();
@@ -74,8 +83,9 @@ function App() {
         <Route exact path="/" element={<Landing />} />
 
         <Route path="/login" element={<Login />} />
-
         <Route path="/register" element={<Register />} />
+        <Route path="/company/login" element={<CompanyLogin />} />
+        <Route path="/company/register" element={<CompanyRegister />} />
 
         <Route element={<MainLayout />}>
           <Route
@@ -95,6 +105,29 @@ function App() {
             <Route path="/editProfile" element={<EditProfile />} />
             <Route path="/deleteAccount" element={<DeleteAccount />} />
             <Route path="/resume-analysis" element={<ResumeAnalysis />} />
+            <Route path="/notifications" element={<Notifications />} />
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute
+                isAllowed={localStorage.getItem("companyToken") !== null}
+              />
+            }
+          >
+            <Route path="/company/profile" element={<CompanyProfile />} />
+            <Route path="/company/dashboard" element={<CompanyDashboard />} />
+            <Route path="/company/post-job" element={<CreateJob />} />
+            <Route path="/company/jobs" element={<CompanyJobs />} />
+            <Route path="/company/edit-job/:id" element={<EditJob />} />
+            <Route
+              path="/company/applications"
+              element={<CompanyApplications />}
+            />
+            <Route
+              path="/company/jobs/:id/applications"
+              element={<JobApplications />}
+            />
           </Route>
 
           <Route
@@ -104,7 +137,7 @@ function App() {
               />
             }
           >
-            {/* <Route path="/admin/dashboard" element={<Dashboard />} />
+            <Route path="/admin/dashboard" element={<Dashboard />} />
             <Route path="/admin/postJob" element={<CreateJob />} />
             <Route path="/admin/allJobs" element={<ViewAllJobAdmin />} />
             <Route path="/admin/allApplications" element={<ViewAllAppli />} />
@@ -115,14 +148,6 @@ function App() {
             />
             <Route path="/admin/user/role/:id" element={<EditUserAdmin />} />
             <Route path="/admin/job/details/:id" element={<EditJobAdmin />} />
-            <Route path="/admin/jobs" element={<AdminJobs />} />
-            <Route path="/admin/jobs/create" element={<CreateJob />} />
-            <Route path="/admin/jobs/edit/:id" element={<EditJob />} />
-            <Route path="/admin/applications" element={<ViewAllAppli />} />
-            <Route
-              path="/admin/application/edit/:id"
-              element={<EditAppAdmin />}
-            /> */}
           </Route>
 
           <Route path="/jobs" element={<Jobs />} />
