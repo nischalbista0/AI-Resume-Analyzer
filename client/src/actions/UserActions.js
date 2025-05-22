@@ -215,8 +215,6 @@ export const updateResume = (formData) => async (dispatch) => {
 
 export const deleteAccount = (userData) => async (dispatch) => {
   try {
-    console.log(userData);
-
     dispatch(deleteAccountRequest());
 
     const config = {
@@ -230,8 +228,6 @@ export const deleteAccount = (userData) => async (dispatch) => {
       userData,
       config
     );
-
-    console.log(data);
 
     dispatch(deleteAccountSuccess());
     if (data.message === "Account Deleted") {

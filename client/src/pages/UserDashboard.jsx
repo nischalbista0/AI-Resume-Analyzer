@@ -25,6 +25,7 @@ import {
   FaUser,
   FaFileAlt,
 } from "react-icons/fa";
+import axios from "axios";
 
 // Use hardcoded API URL as requested
 const API_URL = "http://localhost:3000/api/v1";
@@ -62,6 +63,17 @@ export const UserDashboard = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const [youtubeCourses, setYoutubeCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [jobPostings, setJobPostings] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loadingMoreJobs, setLoadingMoreJobs] = useState(false);
+  const [currentJobPage, setCurrentJobPage] = useState(1);
+  const [hasMoreJobs, setHasMoreJobs] = useState(true);
+  const [internalJobs, setInternalJobs] = useState([]);
 
   useEffect(() => {
     if (error) {
@@ -82,6 +94,28 @@ export const UserDashboard = () => {
   useEffect(() => {
     dispatch(getAllJobs());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (me?.resumeAnalysis) {
+      console.log("Full resume analysis data:", me.resumeAnalysis);
+      const analysisData = me.resumeAnalysis;
+
+      // Fetch both internal and external jobs in parallel
+      Promise.all([
+        fetchInternalJobs(analysisData.jobMatches || []),
+        fetchJobPostings(analysisData.jobMatches || [], 1),
+      ]).catch((error) => {
+        console.error("Error fetching jobs:", error);
+      });
+
+      // Fetch YouTube courses using professionalDevelopment array
+      if (analysisData.professionalDevelopment) {
+        fetchYoutubeCourses(analysisData.professionalDevelopment, 1);
+      } else {
+        console.log("No professional development data found in:", analysisData);
+      }
+    }
+  }, [me?.resumeAnalysis]);
 
   const handleViewResume = () => {
     if (!userResume) {
@@ -159,6 +193,196 @@ export const UserDashboard = () => {
     return me.resumeAnalysis;
   };
 
+  // Function to fetch internal jobs
+  const fetchInternalJobs = async (jobMatches) => {
+    if (!jobMatches || jobMatches.length === 0) return;
+
+    try {
+      const userToken = localStorage.getItem("userToken");
+      if (!userToken) {
+        toast.error("You must be logged in to view job recommendations");
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/jobs`, {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+        withCredentials: true,
+      });
+
+      if (response.data.success && response.data.Jobs) {
+        // Create a single regex pattern for all job matches
+        const matchPattern = new RegExp(
+          jobMatches.map((match) => match.toLowerCase()).join("|"),
+          "i"
+        );
+
+        // Filter jobs based on the combined pattern
+        const matchedJobs = response.data.Jobs.filter(
+          (job) =>
+            matchPattern.test(job.title.toLowerCase()) ||
+            matchPattern.test(job.description.toLowerCase())
+        );
+
+        setInternalJobs(matchedJobs);
+      }
+    } catch (error) {
+      console.error("Error fetching internal jobs:", error);
+      toast.error("Failed to fetch internal job recommendations");
+    }
+  };
+
+  // Function to fetch YouTube courses
+  const fetchYoutubeCourses = async (recommendations, page = 1) => {
+    console.log("recommendations", recommendations);
+    if (!recommendations || recommendations.length === 0) return;
+
+    if (page === 1) {
+      setLoadingCourses(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      let allVideos = [];
+
+      for (const recommendation of recommendations) {
+        const options = {
+          method: "GET",
+          url: "https://youtube-v2.p.rapidapi.com/search/",
+          params: {
+            query: recommendation,
+            lang: "en",
+            order_by: "this_month",
+            country: "us",
+            page: page,
+            limit: page === 1 ? "8" : "8",
+          },
+          headers: {
+            "x-rapidapi-key":
+              "7318af8020msh13b0e4ec2d7b8b7p134e91jsn5ae19029597d",
+            "x-rapidapi-host": "youtube-v2.p.rapidapi.com",
+          },
+        };
+
+        const response = await axios.request(options);
+        if (response.data && response.data.videos) {
+          const videosWithCategory = response.data.videos.map((video) => ({
+            ...video,
+            category: recommendation,
+          }));
+          allVideos = [...allVideos, ...videosWithCategory];
+        }
+      }
+
+      const uniqueVideos = Array.from(
+        new Map(allVideos.map((video) => [video.video_id, video])).values()
+      );
+
+      const sortedVideos = uniqueVideos.sort((a, b) => b.views - a.views);
+      const limitedVideos =
+        page === 1 ? sortedVideos.slice(0, 8) : sortedVideos;
+
+      if (page === 1) {
+        setYoutubeCourses(limitedVideos);
+      } else {
+        setYoutubeCourses((prev) => [...prev, ...limitedVideos]);
+      }
+
+      setHasMore(sortedVideos.length > 0);
+    } catch (error) {
+      console.error("Error fetching YouTube courses:", error);
+      toast.error("Failed to fetch recommended courses");
+    } finally {
+      setLoadingCourses(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Function to fetch Job Postings
+  const fetchJobPostings = async (jobMatches, page = 1) => {
+    if (!jobMatches || jobMatches.length === 0) return;
+
+    if (page === 1) {
+      setLoadingJobs(true);
+    } else {
+      setLoadingMoreJobs(true);
+    }
+
+    try {
+      const searchQuery = jobMatches.join(" OR ");
+
+      const options = {
+        method: "GET",
+        url: "https://jsearch.p.rapidapi.com/search",
+        params: {
+          query: searchQuery,
+          page: page.toString(),
+          num_pages: "1",
+          date_posted: "all",
+          limit: "20",
+        },
+        headers: {
+          "x-rapidapi-key":
+            "7318af8020msh13b0e4ec2d7b8b7p134e91jsn5ae19029597d",
+          "x-rapidapi-host": "jsearch.p.rapidapi.com",
+        },
+      };
+
+      const response = await axios.request(options);
+      if (response.data && response.data.data) {
+        const categorizedJobs = response.data.data.map((job) => {
+          const bestMatch = jobMatches.find(
+            (match) =>
+              job.job_title.toLowerCase().includes(match.toLowerCase()) ||
+              job.job_description.toLowerCase().includes(match.toLowerCase())
+          );
+
+          return {
+            ...job,
+            category: bestMatch || jobMatches[0],
+          };
+        });
+
+        const uniqueJobs = Array.from(
+          new Map(categorizedJobs.map((job) => [job.job_id, job])).values()
+        );
+
+        const limitedJobs = page === 1 ? uniqueJobs.slice(0, 8) : uniqueJobs;
+
+        if (page === 1) {
+          setJobPostings(limitedJobs);
+        } else {
+          setJobPostings((prev) => [...prev, ...limitedJobs]);
+        }
+
+        setHasMoreJobs(uniqueJobs.length > 0);
+      }
+    } catch (error) {
+      console.error("Error fetching job postings:", error);
+      toast.error("Failed to fetch recommended job postings");
+    } finally {
+      setLoadingJobs(false);
+      setLoadingMoreJobs(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    const analysisData = me.resumeAnalysis;
+    if (analysisData.professionalDevelopment) {
+      fetchYoutubeCourses(analysisData.professionalDevelopment, nextPage);
+    }
+  };
+
+  const handleLoadMoreJobs = () => {
+    const nextPage = currentJobPage + 1;
+    setCurrentJobPage(nextPage);
+    fetchJobPostings(me.resumeAnalysis.jobMatches, nextPage);
+  };
+
   if (loading || jobsLoading || !me) {
     return <Loader />;
   }
@@ -172,6 +396,8 @@ export const UserDashboard = () => {
     const today = new Date();
     return expiryDate > today;
   });
+
+  console.log(youtubeCourses);
 
   return (
     <>
@@ -439,6 +665,274 @@ export const UserDashboard = () => {
                         </div>
                       </div>
                     )}
+                </div>
+              </div>
+            )}
+
+            {/* Internal Jobs Section */}
+            {internalJobs.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-8">
+                <div className="p-6 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    Direct Job Applications
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    These are jobs where you can apply directly through our
+                    platform. Your resume has been matched with these positions
+                    based on your skills and experience.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {internalJobs.map((job, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-12 h-12 rounded-md overflow-hidden bg-white p-1">
+                            <img
+                              src={
+                                getFileUrl(job.companyLogo) ||
+                                "https://via.placeholder.com/48?text=No+Logo"
+                              }
+                              alt={`${job.companyName} logo`}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src =
+                                  "https://via.placeholder.com/48?text=No+Logo";
+                              }}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
+                              {job.title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-1">
+                              {job.companyName} - {job.location}
+                            </p>
+                            <p className="text-xs text-gray-500 mb-2">
+                              {job.employmentType}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-700 line-clamp-3">
+                            {job.description}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                              {job.experience} years
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              ${job.salary}
+                            </span>
+                          </div>
+                          <Link
+                            to={`/details/${job._id}`}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Apply Now →
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* External Jobs Section */}
+            {jobPostings.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-8">
+                <div className="p-6 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    External Job Opportunities
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    Here are some additional job opportunities from external
+                    sources that match your profile. Click on the links to apply
+                    directly on their websites.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {jobPostings.map((job, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          {job.employer_logo && (
+                            <img
+                              src={job.employer_logo}
+                              alt={`${job.employer_name} logo`}
+                              className="w-12 h-12 object-contain rounded-md bg-white p-1"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <div className="mb-2">
+                              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                {job.category}
+                              </span>
+                            </div>
+                            <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2">
+                              {job.job_title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-1">
+                              {job.employer_name} - {job.job_city},{" "}
+                              {job.job_state}
+                            </p>
+                            <p className="text-xs text-gray-500 mb-2">
+                              Posted by {job.job_publisher}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-700 line-clamp-3">
+                            {job.job_description}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                              {job.job_employment_type}
+                            </span>
+                            {job.employer_website && (
+                              <a
+                                href={job.employer_website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm"
+                              >
+                                Company Website
+                              </a>
+                            )}
+                          </div>
+                          {job.job_apply_link && (
+                            <a
+                              href={job.job_apply_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              Apply Now →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {hasMoreJobs && (
+                    <div className="mt-8 text-center">
+                      <button
+                        onClick={handleLoadMoreJobs}
+                        disabled={loadingMoreJobs}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loadingMoreJobs ? (
+                          <span className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Loading...
+                          </span>
+                        ) : (
+                          "Load More Jobs"
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Recommended Courses Section */}
+            {youtubeCourses.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-8">
+                <div className="p-6 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    Recommended Learning Resources
+                  </h2>
+                  <p className="text-gray-600 mb-8">
+                    Keep your skills sharp with these recommended courses to
+                    stay ahead in your career.
+                  </p>
+
+                  {loadingCourses ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
+                      <p className="mt-4 text-gray-600">
+                        Loading recommended resources...
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {youtubeCourses.map((course, index) => (
+                          <div
+                            key={index}
+                            className="bg-gray-50 rounded-lg p-4 hover:shadow-lg transition-shadow duration-300"
+                          >
+                            <div className="aspect-video mb-4 bg-gray-200 rounded-lg overflow-hidden">
+                              <img
+                                src={course.thumbnails[0].url}
+                                alt={course.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="mb-2">
+                              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                {course.category}
+                              </span>
+                            </div>
+                            <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
+                              {course.title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                              {course.description}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-500">
+                                {course.channel_name}
+                              </span>
+                              <a
+                                href={`https://www.youtube.com/watch?v=${course.video_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                Watch Video →
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {hasMore && (
+                        <div className="mt-8 text-center">
+                          <button
+                            onClick={handleLoadMore}
+                            disabled={loadingMore}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {loadingMore ? (
+                              <span className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Loading...
+                              </span>
+                            ) : (
+                              "Load More Videos"
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}

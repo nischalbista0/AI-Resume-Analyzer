@@ -9,8 +9,6 @@ const fs = require("fs");
 // Upload file handler
 exports.uploadFile = async (req, res) => {
   try {
-    console.log("Files received:", req.files);
-
     if (!req.files) {
       return res.status(400).json({
         success: false,
@@ -272,9 +270,6 @@ exports.getPostedJobs = async (req, res) => {
         select: "name email", // Select only necessary fields
       });
 
-    console.log("Company ID:", req.company._id);
-    console.log("Found Jobs:", jobs);
-
     res.status(200).json({
       success: true,
       count: jobs.length,
@@ -293,13 +288,10 @@ exports.getPostedJobs = async (req, res) => {
 exports.getJobApplications = async (req, res) => {
   try {
     const { jobId } = req.params;
-    console.log(jobId);
-    console.log(req.company._id);
     const job = await Job.findOne({
       _id: jobId,
       postedBy: req.company._id,
     });
-    console.log(job);
 
     if (!job) {
       return res.status(404).json({
