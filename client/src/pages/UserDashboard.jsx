@@ -73,7 +73,7 @@ export const UserDashboard = () => {
     if (me?.resume) {
       setUserResume(me.resume);
     }
-  }, [me]);
+  }, [me?.resume]);
 
   useEffect(() => {
     dispatch(getAppliedJob());
@@ -133,12 +133,18 @@ export const UserDashboard = () => {
     formData.append("resume", selectedFile);
 
     try {
-      await dispatch(updateResume(formData));
-      toast.success("Resume updated successfully!");
-      closeEdit();
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      const result = await dispatch(updateResume(formData));
+      if (result?.payload?.resume) {
+        toast.success("Resume updated successfully!");
+        closeEdit();
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        // Reload the page after successful upload
+        window.location.reload();
+      } else {
+        toast.error("Failed to update resume");
       }
     } catch (err) {
       toast.error(err.message || "Failed to update resume");
@@ -146,8 +152,6 @@ export const UserDashboard = () => {
       setUploadLoading(false);
     }
   };
-
-  console.log(me);
 
   // Get resume analysis data
   const getResumeAnalysisData = () => {

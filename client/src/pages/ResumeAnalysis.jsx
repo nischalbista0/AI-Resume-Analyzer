@@ -456,8 +456,9 @@ export const ResumeAnalysis = () => {
         setTempResumeId(null);
         setAnalysisResult(null);
 
-        // Navigate to dashboard
-        navigate("/dashboard");
+        // Navigate to dashboard and reload the page
+        navigate("/main");
+        window.location.reload();
       }
     } catch (err) {
       console.error("Error saving resume:", err);
@@ -959,6 +960,25 @@ export const ResumeAnalysis = () => {
                           </div>
                         ))}
                       </div>
+
+                      {hasMoreJobs && (
+                        <div className="mt-8 text-center">
+                          <button
+                            onClick={handleLoadMoreJobs}
+                            disabled={loadingMoreJobs}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {loadingMoreJobs ? (
+                              <span className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Loading...
+                              </span>
+                            ) : (
+                              "Load More Jobs"
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
