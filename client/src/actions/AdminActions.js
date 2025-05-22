@@ -125,7 +125,6 @@ export const getAppData = (id) => async (dispatch) => {
 
 export const updateApplication = (id, dataBody) => async (dispatch) => {
   try {
-    console.log(dataBody.status);
     if (dataBody.status === "not") {
       toast.info("Please Select Status !");
     } else {

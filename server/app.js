@@ -28,6 +28,7 @@ const Job = require("./routes/JobRoutes");
 const Application = require("./routes/ApplicationRoutes");
 const Admin = require("./routes/AdminRoutes");
 const Resume = require("./routes/ResumeRoutes");
+const Company = require("./routes/companyRoutes");
 const { errorMiddleware } = require("./middlewares/error");
 
 app.use("/api/v1", User);
@@ -35,6 +36,7 @@ app.use("/api/v1", Job);
 app.use("/api/v1", Application);
 app.use("/api/v1", Admin);
 app.use("/api/v1/resume", Resume);
+app.use("/api/v1/company", Company);
 
 app.get("/", (req, res) => {
   res.json("I am working");

@@ -1,8 +1,41 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import useIsMobile from "../hooks/useIsMobile";
+import {
+  MdLocationOn,
+  MdWorkOutline,
+  MdAccessTime,
+  MdAttachMoney,
+} from "react-icons/md";
 
-export const JobCard = ({ job }) => {
+const getFileUrl = (filePath) => {
+  if (!filePath) return null;
+
+  // If filePath is an object with url property
+  if (typeof filePath === "object" && filePath.url) {
+    const normalizedPath = filePath.url
+      .replace(/^.*[\\\/]uploads[\\\/]/, "uploads/")
+      .replace(/\\/g, "/");
+    return `http://localhost:3000/${normalizedPath}`;
+  }
+
+  // If filePath is a string (direct path)
+  if (typeof filePath === "string") {
+    // If it's already a full URL, return it
+    if (filePath.startsWith("http")) {
+      return filePath;
+    }
+    // Otherwise, process it as a local file path
+    const normalizedPath = filePath
+      .replace(/^.*[\\\/]uploads[\\\/]/, "uploads/")
+      .replace(/\\/g, "/");
+    return `http://localhost:3000/${normalizedPath}`;
+  }
+
+  return null;
+};
+
+export const JobCard = ({ job, onClick }) => {
   const convertDateFormat = (inputDate) => {
     const parts = inputDate.split("-");
     if (parts.length !== 3) {
@@ -19,47 +52,90 @@ export const JobCard = ({ job }) => {
   const isMobile = useIsMobile();
 
   return (
-    <Link
-      to={`/details/${job._id}`}
-      className="bg-white hover:shadow-md transition-shadow duration-300 flex flex-col gap-2 border border-gray-200 md:px-4 px-3 w-full py-3 rounded-lg"
-    >
-      <div className="flex gap-5 relative">
-        <div className="flex justify-center items-center">
-          <img src={job.companyLogo.url} className="w-[4rem]" alt="" />
-        </div>
-        <div className="flex flex-col">
-          <div>
-            <p className="md:text-xl text-lg font-medium text-gray-800">
-              {job.title}
-            </p>
-          </div>
-          <div className="flex justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-gray-600">{job.companyName}</p>
-              <p className="text-sm text-gray-600">{job.exp}</p>
-              {!isMobile && (
-                <p className="text-sm text-gray-600">
-                  {job.description.slice(0, 64)}...
-                </p>
-              )}
-              <p className="text-sm text-gray-600 flex md:hidden">
-                {job.description.slice(0, 39)}...
-              </p>
-            </div>
-            <div className="absolute md:right-3 right-0 md:pt-0 top-3">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors duration-300 md:text-sm text-xs px-4 py-1.5 rounded-md">
-                Apply
-              </button>
-            </div>
+    <div className="bg-white hover:shadow-xl transition-all duration-300 rounded-xl p-6 border border-gray-100 cursor-pointer group">
+      <div className="flex gap-6">
+        {/* Company Logo */}
+        <div className="flex-shrink-0">
+          <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 group-hover:border-blue-100 transition-colors duration-300">
+            <img
+              src={getFileUrl(job.companyLogo)}
+              alt={job.companyName}
+              className="w-full h-full object-contain p-2"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "https://via.placeholder.com/80?text=No+Logo";
+              }}
+            />
           </div>
         </div>
-      </div>
 
-      <div className="flex md:gap-8 gap-3 md:text-sm text-xs text-gray-500">
-        <span>{convertDateFormat(job.createdAt.substr(0, 10))}</span>
-        <span>{job.employmentType}</span>
-        <span>{job.location}</span>
+        {/* Job Details */}
+        <div className="flex-grow min-w-0">
+          <div className="flex flex-col gap-3">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">
+                {job.title}
+              </h3>
+              <div className="flex items-center gap-2 text-gray-600 mt-1">
+                <MdWorkOutline className="text-blue-500" />
+                <span className="text-sm font-medium">{job.companyName}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2 text-gray-600">
+                <MdLocationOn className="text-blue-500" />
+                <span className="text-sm">{job.location}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <MdAttachMoney className="text-blue-500" />
+                <span className="text-sm">{job.salary}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <MdWorkOutline className="text-blue-500" />
+                <span className="text-sm">{job.experience}</span>
+              </div>
+            </div>
+
+            {!isMobile && (
+              <p className="text-gray-600 text-sm mt-1 line-clamp-2">
+                {job.description}
+              </p>
+            )}
+            {isMobile && (
+              <p className="text-gray-600 text-sm mt-1 line-clamp-1">
+                {job.description}
+              </p>
+            )}
+          </div>
+
+          {/* Job Meta */}
+          <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <MdAccessTime className="text-blue-500" />
+              <span>{convertDateFormat(job.createdAt.substr(0, 10))}</span>
+            </div>
+            <span className="text-gray-300">•</span>
+            <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">
+              {job.employmentType}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="px-2 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-medium">
+              {job.category}
+            </span>
+          </div>
+        </div>
+
+        {/* Apply Button */}
+        <div className="flex-shrink-0">
+          <Link
+            to={`/details/${job._id}`}
+            className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+          >
+            Apply
+          </Link>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 };

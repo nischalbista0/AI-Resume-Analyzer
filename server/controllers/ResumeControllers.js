@@ -387,10 +387,18 @@ exports.saveResume = async (req, res) => {
       resumeFileName
     );
 
-    // Update the user's resume data
+    // Update the user's resume data with structured analysis
     user.resume = relativePath;
-    user.resumeAnalysis = tempResume.analysis; // Save the analysis results
-    user.resumeUpdatedAt = new Date();
+    user.resumeAnalysis = {
+      score: tempResume.analysis.score || 0,
+      recommendations: tempResume.analysis.recommendations || [],
+      skillGaps: tempResume.analysis.skill_gaps || [],
+      atsTips: tempResume.analysis.ats_tips || [],
+      jobMatches: tempResume.analysis.job_matches || [],
+      professionalDevelopment:
+        tempResume.analysis.professional_development || [],
+      lastAnalyzed: new Date(),
+    };
     await user.save();
 
     // Delete temporary file
@@ -403,7 +411,7 @@ exports.saveResume = async (req, res) => {
       success: true,
       message: "Resume saved permanently",
       resumePath: resumeFilePath,
-      analysis: tempResume.analysis,
+      analysis: user.resumeAnalysis,
     });
   } catch (err) {
     console.error("Error saving resume:", err);

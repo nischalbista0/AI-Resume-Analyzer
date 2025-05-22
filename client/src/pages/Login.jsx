@@ -11,6 +11,7 @@ import { TbLoader2 } from "react-icons/tb";
 import { loginUser } from "../actions/UserActions";
 import { useDispatch, useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
+import { BsBuilding } from "react-icons/bs";
 
 export const Login = () => {
   const { loading, isLogin } = useSelector((state) => state.user);
@@ -171,6 +172,17 @@ export const Login = () => {
                 "Sign In"
               )}
             </button>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600 mb-2">Are you a company?</p>
+              <Link
+                to="/company/login"
+                className="inline-flex items-center gap-2 text-green-600 font-medium hover:text-green-700 transition-colors"
+              >
+                <BsBuilding size={16} />
+                Switch to Company Login
+              </Link>
+            </div>
           </form>
 
           <p className="mt-6 text-sm text-gray-600">

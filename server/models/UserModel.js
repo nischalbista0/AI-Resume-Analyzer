@@ -69,6 +69,43 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+
+  resumeAnalysis: {
+    score: {
+      type: Number,
+      default: 0,
+    },
+    recommendations: [
+      {
+        type: String,
+      },
+    ],
+    skillGaps: [
+      {
+        type: String,
+      },
+    ],
+    atsTips: [
+      {
+        type: String,
+      },
+    ],
+    jobMatches: [
+      {
+        type: String,
+      },
+    ],
+    professionalDevelopment: [
+      {
+        type: String,
+      },
+    ],
+    lastAnalyzed: {
+      type: Date,
+      default: null,
+    },
+  },
+
   savedJobs: [
     {
       type: mongoose.Schema.Types.ObjectId,

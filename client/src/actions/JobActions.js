@@ -15,9 +15,9 @@ import {
   getSavedJobsSuccess,
   getSavedJobsFail,
 } from "../slices/JobSlice";
-import { toast } from "react-toastify";
-import { me } from "../actions/UserActions";
+import { toast } from "react-hot-toast";
 import axios from "axios";
+import { me } from "./UserActions";
 
 export const createJobPost = (jobData) => async (dispatch) => {
   try {
@@ -25,20 +25,22 @@ export const createJobPost = (jobData) => async (dispatch) => {
 
     const config = {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("companyToken")}`,
       },
     };
 
     const { data } = await axios.post(
-      "http://localhost:3000/api/v1/create/job",
+      "http://localhost:3000/api/v1/company/jobs",
       jobData,
       config
     );
 
-    dispatch(newPostSuccess());
-    toast.success("Job posted successfully !");
+    dispatch(newPostSuccess(data));
+    return { success: true };
   } catch (err) {
-    dispatch(newPostFail(err.response.data.message));
+    dispatch(newPostFail(err.response?.data?.message || "Failed to post job"));
+    throw err;
   }
 };
 
@@ -50,7 +52,9 @@ export const getAllJobs = () => async (dispatch) => {
 
     dispatch(allJobsSuccess(data.Jobs));
   } catch (err) {
-    dispatch(allJobsFail(err.response.data.message));
+    dispatch(
+      allJobsFail(err.response?.data?.message || "Failed to fetch jobs")
+    );
   }
 };
 
@@ -62,7 +66,11 @@ export const getSingleJob = (id) => async (dispatch) => {
 
     dispatch(jobDetailsSuccess(data.job));
   } catch (err) {
-    dispatch(jobDetailsFail(err.response.data.message));
+    dispatch(
+      jobDetailsFail(
+        err.response?.data?.message || "Failed to fetch job details"
+      )
+    );
   }
 };
 
@@ -77,16 +85,18 @@ export const saveJob = (id) => async (dispatch) => {
       },
     };
 
-    const { data } = await axios.get(
+    const { data } = await axios.post(
       `http://localhost:3000/api/v1/saveJob/${id}`,
+      {},
       config
     );
 
-    dispatch(me());
     dispatch(jobSaveSuccess());
-    toast.success(data.message);
+    dispatch(me());
+    toast.success(data.message || "Job saved successfully!");
   } catch (err) {
-    dispatch(jobSaveFail(err.response.data.message));
+    dispatch(jobSaveFail(err.response?.data?.message || "Failed to save job"));
+    toast.error(err.response?.data?.message || "Failed to save job");
   }
 };
 
@@ -102,12 +112,16 @@ export const getSavedJobs = () => async (dispatch) => {
     };
 
     const { data } = await axios.get(
-      "http://localhost:3000/api/v1/getSavedJobs",
+      "http://localhost:3000/api/v1/savedJobs",
       config
     );
 
     dispatch(getSavedJobsSuccess(data));
   } catch (err) {
-    dispatch(getSavedJobsFail(err.response.data.message));
+    dispatch(
+      getSavedJobsFail(
+        err.response?.data?.message || "Failed to fetch saved jobs"
+      )
+    );
   }
 };

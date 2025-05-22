@@ -1,5 +1,4 @@
 const express = require("express");
-const multer = require("multer");
 const {
   register,
   login,
@@ -9,6 +8,8 @@ const {
   updateProfile,
   deleteAccount,
   uploadFile,
+  getNotifications,
+  markNotificationAsRead,
 } = require("../controllers/UserControllers");
 const { isAuthenticated } = require("../middlewares/auth");
 const {
@@ -22,18 +23,6 @@ const {
 const upload = require("../config/multer");
 const router = express.Router();
 
-// Error handling middleware
-const handleMulterError = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    console.error("Multer error:", err);
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-    });
-  }
-  next(err);
-};
-
 // File upload route
 router.route("/upload").post(
   (req, res, next) => {
@@ -45,7 +34,6 @@ router.route("/upload").post(
     next();
   },
   upload.fields([{ name: "avatar", maxCount: 1 }]),
-  handleMulterError,
   uploadFile
 );
 
@@ -97,5 +85,9 @@ router
     upload.fields([{ name: "resume", maxCount: 1 }]),
     updateProfile
   );
+
+// Notification routes
+router.get("/notifications", isAuthenticated, getNotifications);
+router.put("/notifications/:id/read", isAuthenticated, markNotificationAsRead);
 
 module.exports = router;
